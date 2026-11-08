@@ -2363,20 +2363,18 @@ const CURRICULUM = [
 ];
 
 async function main() {
-  console.log('🌱 Seeding Complete Honours 4th Year 6-Subject Curriculum & 190+ YouTube Lectures...');
+  console.log('🌱 Importing the Honors 4th Year curriculum safely (no existing records will be deleted)...');
 
-  await prisma.file.deleteMany();
-  await prisma.studyNote.deleteMany();
-  await prisma.youTubeClass.deleteMany();
-  await prisma.topic.deleteMany();
-  await prisma.chapter.deleteMany();
-  await prisma.subject.deleteMany();
-  await prisma.resourceCategory.deleteMany();
+  let subjectCount = 0;
+  let chapterCount = 0;
+  let topicCount = 0;
+  let lectureCount = 0;
 
-  for (let sIdx = 0; sIdx < CURRICULUM.length; sIdx++) {
-    const subData = CURRICULUM[sIdx];
-    const subject = await prisma.subject.create({
-      data: {
+  for (const subData of CURRICULUM) {
+    const subject = await prisma.subject.upsert({
+      where: { code: subData.code },
+      create: {
+        id: subData.id,
         code: subData.code,
         name: subData.name,
         slug: subData.id,
@@ -2385,63 +2383,96 @@ async function main() {
         iconName: subData.icon,
         isSampleData: false,
       },
+      update: {
+        name: subData.name,
+        department: subData.department,
+        description: subData.description,
+        iconName: subData.icon,
+        isSampleData: false,
+      },
     });
+    subjectCount++;
 
     for (const chData of subData.chapters) {
-      const chapter = await prisma.chapter.create({
-        data: {
+      const chapterId = `${subData.id}-ch-${chData.num}`;
+      const chapter = await prisma.chapter.upsert({
+        where: {
+          subjectId_chapterNumber: {
+            subjectId: subject.id,
+            chapterNumber: chData.num,
+          },
+        },
+        create: {
+          id: chapterId,
           subjectId: subject.id,
           chapterNumber: chData.num,
           title: chData.title,
-          slug: `${subData.id}-ch-${chData.num}`,
+          slug: chapterId,
+          description: chData.desc,
+        },
+        update: {
+          title: chData.title,
           description: chData.desc,
         },
       });
+      chapterCount++;
 
       for (const topData of chData.topics) {
-        const topic = await prisma.topic.create({
-          data: {
+        const topicId = `${chapterId}-top-${topData.num}`;
+        const topic = await prisma.topic.upsert({
+          where: {
+            chapterId_topicNumber: {
+              chapterId: chapter.id,
+              topicNumber: topData.num,
+            },
+          },
+          create: {
+            id: topicId,
             subjectId: subject.id,
             chapterId: chapter.id,
             topicNumber: topData.num,
             title: topData.title,
-            slug: `${subData.id}-ch-${chData.num}-top-${topData.num}`,
+            slug: topicId,
+            description: topData.desc,
+            additionalResources: topData.note,
+          },
+          update: {
+            title: topData.title,
             description: topData.desc,
             additionalResources: topData.note,
           },
         });
+        topicCount++;
 
-        const note = await prisma.studyNote.create({
-          data: {
+        const noteId = `${topicId}-study-note`;
+        await prisma.studyNote.upsert({
+          where: { id: noteId },
+          create: {
+            id: noteId,
             subjectId: subject.id,
             chapterId: chapter.id,
             topicId: topic.id,
             title: `${chData.title} — ${topData.title}`,
-            summary: topData.note,
+            summary: topData.note || topData.desc,
             author: 'Honors 4th Year Physics Archive',
           },
-        });
-
-        await prisma.file.create({
-          data: {
-            subjectId: subject.id,
-            chapterId: chapter.id,
-            topicId: topic.id,
-            studyNoteId: note.id,
-            fileName: `${subData.code}_Ch${String(chData.num).padStart(2, '0')}_Top${topData.num}_Notes.pdf`,
-            fileType: FileFormat.PDF,
-            mimeType: 'application/pdf',
-            driveFileId: `1Drive_${subData.code}_Ch${chData.num}_Top${topData.num}`,
-            driveShareUrl: `https://drive.google.com/file/d/1Drive_${subData.code}_Ch${chData.num}_Top${topData.num}/view?usp=sharing`,
-            driveFolderPath: `Google Drive/Honors_4th_Year/Subject_0${sIdx + 1}/Chapter_0${chData.num}/Topic_0${topData.num}`,
-            fileSize: 2048576,
+          update: {
+            title: `${chData.title} — ${topData.title}`,
+            summary: topData.note || topData.desc,
           },
         });
 
         for (const lec of topData.lectures) {
-          const videoId = lec.url.split('/').pop() || '';
-          await prisma.youTubeClass.create({
-            data: {
+          if (!lec.url) {
+            console.warn(`Skipping lecture without a YouTube URL: ${subData.name} / ${chData.title} / Lec ${lec.lec}`);
+            continue;
+          }
+          const videoId = lec.url.split('/').pop()?.split('?')[0] || '';
+          const lectureId = `${topicId}-lec-${lec.lec}`;
+          await prisma.youTubeClass.upsert({
+            where: { id: lectureId },
+            create: {
+              id: lectureId,
               subjectId: subject.id,
               chapterId: chapter.id,
               topicId: topic.id,
@@ -2449,24 +2480,36 @@ async function main() {
               title: lec.title,
               shortDescription: lec.desc,
               youtubeUrl: lec.url.trim(),
-              youtubeVideoId: videoId.trim(),
-              thumbnailUrl: `https://i.ytimg.com/vi/${videoId.trim()}/hqdefault.jpg`,
+              youtubeVideoId: videoId,
+              thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
               duration: 'Full Class',
               instructorName: subData.name,
               isPopular: Boolean(lec.popular),
             },
+            update: {
+              lectureNumber: lec.lec,
+              title: lec.title,
+              shortDescription: lec.desc,
+              youtubeUrl: lec.url.trim(),
+              youtubeVideoId: videoId,
+              thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+              instructorName: subData.name,
+              isPopular: Boolean(lec.popular),
+            },
           });
+          lectureCount++;
         }
       }
     }
   }
 
-  console.log('✅ Completed seeding all 6 subjects, 47 chapters, and 190+ YouTube classes!');
+  console.log(`✅ Imported ${subjectCount} subjects, ${chapterCount} chapters, ${topicCount} topics, and ${lectureCount} YouTube lectures.`);
+  console.log('ℹ️ Existing records and uploaded files were preserved. No placeholder PDF files were created.');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Curriculum import failed:', e);
     process.exit(1);
   })
   .finally(async () => {
