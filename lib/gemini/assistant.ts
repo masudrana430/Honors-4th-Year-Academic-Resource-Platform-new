@@ -259,43 +259,48 @@ function detectResourceFilter(query: string): 'ALL' | 'VIDEO' | 'NOTES' | 'INFO'
 }
 
 
+
 type IdentityIntent = 'name' | 'creator' | 'about';
 
 const ASSISTANT_NAME = 'Campus Assistant';
 const ASSISTANT_CREATOR = 'Masud Rana';
 
 function fallbackLanguage(query: string): 'en' | 'bn' | 'mixed' {
-  const hasBangla = /[\\u0980-\\u09FF]/.test(query);
+  const hasBangla = /[\u0980-\u09FF]/.test(query);
   const hasLatin = /[a-zA-Z]/.test(query);
   return hasBangla && hasLatin ? 'mixed' : hasBangla ? 'bn' : 'en';
 }
 
 function detectIdentityIntent(query: string): IdentityIntent | null {
-  const q = query.toLowerCase().replace(/[?!.,]/g, ' ').trim();
+  const q = query.toLowerCase()
+    .replace(/\bwhat['’]s\b/g, 'what is')
+    .replace(/[?!.,'’]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   if (
-    /\\b(who|which person)\\s+(created|made|developed|built)\\s+you\\b/.test(q) ||
-    /\\bwho is your (creator|developer|owner|maker)\\b/.test(q) ||
-    /\\b(your creator|your developer|your maker)\\b/.test(q) ||
+    /\b(who|which person)\s+(created|made|developed|built)\s+you\b/.test(q) ||
+    /\bwho is your (creator|developer|owner|maker)\b/.test(q) ||
+    /\b(your creator|your developer|your maker)\b/.test(q) ||
     /তোমাকে কে (তৈরি|বানিয়েছে|বানিয়েছে|ডেভেলপ করেছে)/.test(q) ||
     /আপনাকে কে (তৈরি|বানিয়েছে|বানিয়েছে|ডেভেলপ করেছে)/.test(q) ||
     /(তোমার|আপনার) (নির্মাতা|ডেভেলপার|ক্রিয়েটর|ক্রিয়েটর) কে/.test(q) ||
-    /\\bke (tomake|apnake) (toiri|baniyeche|develop koreche|create koreche)\\b/.test(q)
+    /\bke (tomake|apnake) (toiri|baniyeche|develop koreche|create koreche)\b/.test(q)
   ) return 'creator';
 
   if (
-    /\\b(what is|what's|tell me)\\s+your\\s+name\\b/.test(q) ||
-    /\\bwhat should i call you\\b/.test(q) ||
-    /\\byour name\\b/.test(q) ||
+    /\b(what is|tell me)\s+your\s+name\b/.test(q) ||
+    /\bwhat should i call you\b/.test(q) ||
+    /\byour name\b/.test(q) ||
     /(তোমার|আপনার) নাম (কি|কী)/.test(q) ||
     /(তোমার|আপনার) নাম বল/.test(q) ||
-    /\\b(tomar|apnar) nam (ki|bolo)\\b/.test(q)
+    /\b(tomar|apnar) nam (ki|bolo)\b/.test(q)
   ) return 'name';
 
   if (
-    /\\b(who are you|what are you|introduce yourself|tell me about yourself)\\b/.test(q) ||
+    /\b(who are you|what are you|introduce yourself|tell me about yourself)\b/.test(q) ||
     /তুমি কে|আপনি কে|তোমার পরিচয় কি|তোমার পরিচয় কি|নিজের পরিচয় দাও|নিজের পরিচয় দাও/.test(q) ||
-    /\\b(tumi ke|apni ke|nijer porichoy dao)\\b/.test(q)
+    /\b(tumi ke|apni ke|nijer porichoy dao)\b/.test(q)
   ) return 'about';
 
   return null;
@@ -308,13 +313,13 @@ function buildIdentityResponse(
   let answer: string;
 
   if (language === 'bn') {
-    if (intent === 'name') answer = `আমার নাম ${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।`;
-    else if (intent === 'creator') answer = `আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
-    else answer = `আমি ${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
+    if (intent === 'name') answer = \`আমার নাম \${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।\`;
+    else if (intent === 'creator') answer = \`আমাকে তৈরি ও ডেভেলপ করেছেন \${ASSISTANT_CREATOR}।\`;
+    else answer = \`আমি \${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন \${ASSISTANT_CREATOR}।\`;
   } else {
-    if (intent === 'name') answer = `My name is ${ASSISTANT_NAME}. I'm your academic assistant.`;
-    else if (intent === 'creator') answer = `I was created and developed by ${ASSISTANT_CREATOR}.`;
-    else answer = `I am ${ASSISTANT_NAME}, the AI academic assistant for this Honors 4th Year Academic Resource Platform. I was created and developed by ${ASSISTANT_CREATOR}.`;
+    if (intent === 'name') answer = \`My name is \${ASSISTANT_NAME}. I'm your academic assistant.\`;
+    else if (intent === 'creator') answer = \`I was created and developed by \${ASSISTANT_CREATOR}.\`;
+    else answer = \`I am \${ASSISTANT_NAME}, the AI academic assistant for this Honors 4th Year Academic Resource Platform. I was created and developed by \${ASSISTANT_CREATOR}.\`;
   }
 
   return {
