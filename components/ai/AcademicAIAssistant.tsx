@@ -193,12 +193,14 @@ export function AcademicAIAssistant() {
     voiceModeRef.current = true;
     setVoiceMode(true);
     setVoiceStatus('Voice Assistant চালু হচ্ছে...');
-    speak(voiceLanguage === 'en-US'
-      ? 'Hello! I am Campus Assistant. Which subject or chapter do you need?'
-      : 'হ্যালো! আমি Campus Assistant। আপনার কোন subject বা chapter লাগবে?');
-    window.setTimeout(() => {
-      if (voiceModeRef.current) startListeningRef.current();
-    }, 1000);
+    speak(
+      voiceLanguage === 'en-US'
+        ? 'Hello! I am Campus Assistant. Which subject or chapter do you need?'
+        : 'হ্যালো! আমি Campus Assistant। আপনার কোন subject বা chapter লাগবে?',
+      () => {
+        if (voiceModeRef.current) startListeningRef.current();
+      }
+    );
   };
 
   if (!isOpen) {
