@@ -155,15 +155,11 @@ export function AcademicAIAssistant() {
       const data: AIChatResponsePayload = await response.json();
       const answer = data.answer || 'Here are the matching database resources:';
       setMessages((prev) => [...prev, { id: 'a-' + Date.now(), sender: 'assistant', text: answer, payload: data }]);
-      // Auto-open only when the database returned exactly one distinct
-      // chapter page. Never navigate to a model-generated or external URL.
-      const chapterHrefs = Array.from(new Set(
-        (data.resources || [])
-          .filter((item) => item.type === 'CHAPTER')
-          .map((item) => item.href)
-          .filter((href) => /^\/chapters\/[A-Za-z0-9_-]+$/.test(href))
-      ));
-      const targetHref = chapterHrefs.length === 1 ? chapterHrefs[0] : null;
+      // Only explicit, server-resolved chapter navigation requests may auto-open.
+      const targetHref = data.navigationTarget?.type === 'CHAPTER' &&
+        /^\/chapters\/[A-Za-z0-9_-]+$/.test(data.navigationTarget.href)
+        ? data.navigationTarget.href
+        : null;
 
       if (targetHref) {
         // Close the assistant before navigation so the chapter page is fully visible.
