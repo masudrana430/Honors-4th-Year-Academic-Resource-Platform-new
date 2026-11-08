@@ -263,7 +263,7 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
 function isElectromagneticWavesChapterRequest(query: string): boolean {
   const normalized = query.toLowerCase()
     .normalize('NFC')
-    .replace(/[\\s\\p{P}\\p{S}]+/gu, '');
+    .replace(/[\s\p{P}\p{S}]+/gu, '');
 
   const hasElectric = normalized.includes('তড়িৎ') || normalized.includes('তড়িৎ');
   const hasMagnetic = normalized.includes('চুম্বক') || normalized.includes('চৌম্বক') ||
