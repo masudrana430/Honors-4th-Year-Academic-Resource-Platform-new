@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'node:stream';
+import { drive_v3 } from 'googleapis';
 import { prisma } from '@/lib/prisma/client';
 import { ensureDriveFolderHierarchy, getGoogleDriveClient } from '@/lib/google-drive/driveClient';
 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     const drive = getGoogleDriveClient();
-    const driveResponse = await drive.files.create({
+    const driveResponse: { data: drive_v3.Schema$File } = await drive.files.create({
       requestBody: {
         name: file.name.split(String.fromCharCode(92)).join('_').replaceAll('/', '_'),
         mimeType: file.type,
