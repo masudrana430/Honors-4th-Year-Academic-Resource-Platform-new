@@ -36,10 +36,20 @@ export function buildGoogleDriveUrls(driveFileId: string): {
  */
 export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promise<string> {
   const drive = getGoogleDriveClient();
-  const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!rootFolderId) throw new Error('Set GOOGLE_DRIVE_FOLDER_ID to a folder in your personal Google Drive.');
-
-  let parentId = rootFolderId;
+  const rootSearch = await drive.files.list({
+    q: "name = 'Honors_4th_Year' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false",
+    fields: 'files(id, name)',
+    spaces: 'drive',
+  });
+  let parentId = rootSearch.data.files?.[0]?.id;
+  if (!parentId) {
+    const rootCreated = await drive.files.create({
+      requestBody: { name: 'Honors_4th_Year', mimeType: 'application/vnd.google-apps.folder' },
+      fields: 'id',
+    });
+    parentId = rootCreated.data.id;
+  }
+  if (!parentId) throw new Error('Could not create or locate the Honors_4th_Year folder in My Drive.');
   for (const folderName of pathSegments) {
     const escapedName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const response = await drive.files.list({
