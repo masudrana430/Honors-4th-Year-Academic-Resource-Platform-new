@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FileFormat {
+  PDF
+  JPG
+  PNG
+  JPEG
+  WEBP
+}
+
+model ResourceCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  subjects    Subject[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model Subject {
+  id             String            @id @default(cuid())
+  code           String?           @unique
+  name           String
+  slug           String            @unique
+  department     String            @default("Physics (Sample Data)")
+  description    String
+  iconName       String            @default("Atom")
+  thumbnailUrl   String?
+  isSampleData   Boolean           @default(true)
+  categoryId     String?
+  category       ResourceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  chapters       Chapter[]
+  youtubeClasses YouTubeClass[]
+  studyNotes     StudyNote[]
+  files          File[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([name])
+  @@index([code])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model Chapter {
+  id             String         @id @default(cuid())
+  subjectId      String
+  subject        Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapterNumber  Int
+  title          String
+  slug           String
+  description    String
+  topics         Topic[]
+  youtubeClasses YouTubeClass[]
+  studyNotes     StudyNote[]
+  files          File[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([subjectId, chapterNumber])
+  @@unique([subjectId, slug])
+  @@index([subjectId])
+  @@index([title])
+  @@index([chapterNumber])
+}
+
+model Topic {
+  id                  String         @id @default(cuid())
+  subjectId           String
+  chapterId           String
+  chapter             Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  topicNumber         Int
+  title               String
+  slug                String
+  description         String
+  additionalResources String?
+  youtubeClasses      YouTubeClass[]
+  studyNotes          StudyNote[]
+  files               File[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@unique([chapterId, topicNumber])
+  @@unique([chapterId, slug])
+  @@index([chapterId])
+  @@index([subjectId])
+  @@index([title])
+}
+
+model YouTubeClass {
+  id               String   @id @default(cuid())
+  subjectId        String
+  subject          Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapterId        String
+  chapter          Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  topicId          String?
+  topic            Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  lectureNumber    Int
+  title            String
+  shortDescription String
+  youtubeUrl       String
+  youtubeVideoId   String
+  thumbnailUrl     String
+  duration         String   @default("42:15")
+  instructorName   String?
+  isPopular        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([subjectId])
+  @@index([chapterId])
+  @@index([topicId])
+  @@index([title])
+  @@index([isPopular])
+  @@index([createdAt])
+}
+
+model StudyNote {
+  id          String   @id @default(cuid())
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapterId   String
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  topicId     String
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String
+  author      String?
+  files       File[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([subjectId])
+  @@index([chapterId])
+  @@index([topicId])
+  @@index([title])
+  @@index([createdAt])
+}
+
+model File {
+  id             String     @id @default(cuid())
+  subjectId      String
+  subject        Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapterId      String
+  chapter        Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  topicId        String
+  topic          Topic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  studyNoteId    String?
+  studyNote      StudyNote? @relation(fields: [studyNoteId], references: [id], onDelete: Cascade)
+  fileName       String
+  fileType       FileFormat
+  mimeType       String
+  driveFileId    String     @unique
+  driveShareUrl  String
+  driveFolderPath String    @default("Google Drive/Honors_4th_Year")
+  fileSize       Int        // Size in bytes
+  createdAt      DateTime   @default(now())
+
+  @@index([subjectId])
+  @@index([chapterId])
+  @@index([topicId])
+  @@index([fileType])
+  @@index([fileName])
+  @@index([createdAt])
+}
