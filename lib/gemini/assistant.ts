@@ -284,7 +284,10 @@ async function findChapterNavigationMatches(query: string, keywords: string[], c
       const overlap = parts.filter((token) => titleTokens.has(token)).length;
       if (parts.length) score += (overlap / parts.length) * 7;
     }
-    const overlap = [...queryTokens].filter((token) => titleTokens.has(token)).length;
+    let overlap = 0;
+    queryTokens.forEach((token) => {
+      if (titleTokens.has(token)) overlap += 1;
+    });
     if (queryTokens.size) score += (overlap / queryTokens.size) * 8;
     if (chapterNumber && chapter.chapterNumber === chapterNumber && overlap > 0) score += 1.5;
     return { chapter, score, overlap };
