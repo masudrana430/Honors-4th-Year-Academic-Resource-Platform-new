@@ -12,9 +12,9 @@ import { ensureDriveFolderHierarchy, buildGoogleDriveUrls } from '../lib/google-
 
 async function runSync() {
   console.log('🔄 Checking Google Drive OAuth configuration...');
-  if (!process.env.GOOGLE_DRIVE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CLIENT_SECRET || !process.env.GOOGLE_DRIVE_REFRESH_TOKEN || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
+  if (!process.env.GOOGLE_DRIVE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CLIENT_SECRET || !process.env.GOOGLE_DRIVE_REFRESH_TOKEN) {
     console.log(
-      'ℹ️ Configure GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN and GOOGLE_DRIVE_FOLDER_ID in .env.'
+      'ℹ️ Configure GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN in .env.'
     );
     console.log(
       'Complete the personal Gmail OAuth setup and re-run `npm run drive:sync` to sync folders.'
