@@ -20,6 +20,8 @@ services:
         sync: false
       - key: GOOGLE_DRIVE_PRIVATE_KEY
         sync: false
+      - key: ADMIN_UPLOAD_TOKEN
+        sync: false
 
 databases:
   - name: honors-4th-year-db
