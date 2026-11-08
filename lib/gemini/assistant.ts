@@ -50,7 +50,7 @@ Analyze the student's query (which may be in English, Bangla, or mixed Banglish)
   "keywords": ["english search term 1", "english search term 2"],
   "chapterNumber": number | null,
   "resourceFilter": "ALL" | "VIDEO" | "NOTES" | "INFO",
-  "conversationalIntro": "A helpful 1-sentence intro in the student's language explaining what you searched for in the database (do NOT invent any links or subject codes)."
+  "conversationalIntro": "A helpful 1-sentence intro in the student's language explaining what you searched for in the database (do NOT invent any links or subject codes). If the student writes Banglish (Bangla expressed with Latin letters), reply in natural Banglish using Latin letters; if Bangla script, reply in Bangla script; if English, reply in English. Do not mix scripts unless the student does."
 }
 Student query: "${trimmed.replace(/"/g, '\\"')}"`;
 
@@ -316,10 +316,14 @@ function buildIdentityResponse(
     if (intent === 'name') answer = `আমার নাম ${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।`;
     else if (intent === 'creator') answer = `আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
     else answer = `আমি ${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
+  } else if (language === 'mixed') {
+    if (intent === 'name') answer = `Amar naam ${ASSISTANT_NAME}. Ami apnar academic assistant.`;
+    else if (intent === 'creator') answer = `Amake create ebong develop korechen ${ASSISTANT_CREATOR}.`;
+    else answer = `Assalamu Alaikum! Ami ${ASSISTANT_NAME}. Amake ${ASSISTANT_CREATOR} build korechen. Bolun, apnar kon chapter-ti proyojon?`;
   } else {
     if (intent === 'name') answer = `My name is ${ASSISTANT_NAME}. I'm your academic assistant.`;
     else if (intent === 'creator') answer = `I was created and developed by ${ASSISTANT_CREATOR}.`;
-    else answer = `I am ${ASSISTANT_NAME}, the AI academic assistant for this Honors 4th Year Academic Resource Platform. I was created and developed by ${ASSISTANT_CREATOR}.`;
+    else answer = `Assalamu Alaikum! I am ${ASSISTANT_NAME}. I was created by ${ASSISTANT_CREATOR}. Which chapter do you need?`;
   }
 
   return {
