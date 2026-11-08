@@ -39,7 +39,7 @@ export default function MobileStaggeredMenu() {
         </Link>
         <button type="button" className="honors-mobile-nav__toggle" onClick={() => setOpen((value) => !value)}
           aria-label={open ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={open} aria-controls="honors-mobile-menu">
-          <span className="honors-mobile-nav__toggle-label"><span>{open ? 'Close' : 'Menu'}</span></span>
+          <span className="honors-mobile-nav__toggle-label"><span className="honors-mobile-nav__toggle-words"><span>Menu</span><span>Close</span></span></span>
           <span className="honors-mobile-nav__toggle-icon">{open ? <X size={20} /> : <Menu size={20} />}</span>
         </button>
       </header>
@@ -51,7 +51,7 @@ export default function MobileStaggeredMenu() {
         <span /><span /><span />
       </div>
 
-      <nav id="honors-mobile-menu" className="honors-mobile-nav__panel" aria-hidden={!open}>
+      <nav id="honors-mobile-menu" className="honors-mobile-nav__panel" aria-hidden={!open} inert={!open}>
         <p className="honors-mobile-nav__eyebrow">Explore platform</p>
         <ul>
           {links.map((item, index) => (
