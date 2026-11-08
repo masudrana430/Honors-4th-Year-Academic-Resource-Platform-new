@@ -45,13 +45,18 @@ A complete, production-ready, mobile-first academic resource web platform built 
    ```
    Open `http://localhost:3000`.
 
-## 3. Google Drive Service Account Setup
-1. Open the [Google Cloud Console](https://console.cloud.google.com/) and enable the **Google Drive API**.
-2. Go to **IAM & Admin → Service Accounts** and create a Service Account.
-3. Generate a JSON key and copy `client_email` (`GOOGLE_DRIVE_CLIENT_EMAIL`) and `private_key` (`GOOGLE_DRIVE_PRIVATE_KEY`) into your `.env`.
-4. Create a root folder named `Honors_4th_Year` in your Google Drive, share it with your `GOOGLE_DRIVE_CLIENT_EMAIL` (Editor permission) and set general read permissions to **Anyone with the link can view** for public student study notes.
-5. Copy the folder ID from the URL into `GOOGLE_DRIVE_FOLDER_ID`.
-6. Run `npm run drive:sync` to automatically verify/create the `Honors_4th_Year/Subject_XX/Chapter_XX/Topic_XX` folder tree.
+## 3. Google Drive Shared Drive Setup (required for Service Accounts)
+**Important:** Google Service Accounts do not have personal Google Drive storage quota. Uploading into a regular user's My Drive can fail with `Service Accounts do not have storage quota`. Use a Google Workspace **Shared Drive** so the organization's storage quota is used.
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and enable the **Google Drive API** in the same project used by the service account.
+2. Go to **IAM & Admin → Service Accounts**, create/use the service account, and copy its `client_email` and `private_key` into `GOOGLE_DRIVE_CLIENT_EMAIL` and `GOOGLE_DRIVE_PRIVATE_KEY`.
+3. In Google Drive (Workspace account), create or open a **Shared Drive** and add the service account email as **Content manager** (or a role that can create and delete files).
+4. Inside that Shared Drive, create a folder named `Honors_4th_Year`. Copy this folder's ID from its URL into `GOOGLE_DRIVE_FOLDER_ID`.
+5. In Shared Drive settings, allow sharing with **Anyone with the link** if you want public visitors to open uploaded notes. The app creates a viewer permission for each uploaded file; organization policy may block this.
+6. The Drive client now sets `supportsAllDrives` for folder lookup/creation, upload, sharing, and deletion.
+7. Run `npm run drive:sync` to create/verify the `Honors_4th_Year/Subject_XX/Chapter_XX/Topic_XX` folder tree.
+
+**If you use a personal `@gmail.com` account:** personal Google accounts generally do not offer Shared Drives. In that case this Service Account approach cannot use your personal Drive quota; the app must instead be switched to Google OAuth so uploads happen under your own Google account. Do not keep retrying the service-account upload to My Drive.
 
 ## 4. Deploying on Render (`render.yaml` Blueprint or Manual Web Service)
 This repository includes a ready-to-use `render.yaml` Blueprint:
@@ -71,7 +76,7 @@ This repository includes a ready-to-use `render.yaml` Blueprint:
 ## 5. Admin Topic-wise Study Note Upload
 
 1. Set a strong, random `ADMIN_UPLOAD_TOKEN` environment variable in your local `.env` and production hosting environment. Never use a `NEXT_PUBLIC_` prefix and never commit the real secret.
-2. Configure the Google Drive service account and root folder as described above. The service account needs Editor access to the root folder. Uploaded files are shared as **Anyone with the link — Viewer** so students can open them.
+2. Configure the Google Drive service account and Shared Drive folder as described above. The service account needs Content manager access to the Shared Drive. Uploaded files are shared as **Anyone with the link — Viewer** if the Shared Drive's sharing policy allows it.
 3. Open `/admin/notes`, enter the admin token, then choose Subject → Chapter → Topic.
 4. Add a note title and optional description/author, select a PDF/JPG/PNG/WEBP file (maximum 4 MB), and upload.
 5. The server uploads the file into the matching Google Drive topic folder and creates the linked StudyNote and File records in PostgreSQL. The existing chapter page displays the file under that topic.
