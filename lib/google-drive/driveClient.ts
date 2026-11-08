@@ -40,7 +40,7 @@ export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promis
   });
   let parentId = rootSearch.data.files?.[0]?.id;
   if (!parentId) {
-    const rootCreated = await drive.files.create({
+    const rootCreated: { data: drive_v3.Schema$File } = await drive.files.create({
       requestBody: { name: 'Honors_4th_Year', mimeType: 'application/vnd.google-apps.folder' },
       fields: 'id',
     });
@@ -59,7 +59,7 @@ export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promis
       parentId = existingId;
       continue;
     }
-    const created = await drive.files.create({
+    const created: { data: drive_v3.Schema$File } = await drive.files.create({
       requestBody: { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
       fields: 'id',
     });
