@@ -1,0 +1,152 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+
+type Topic = { id: string; title: string; topicNumber: number };
+type Chapter = { id: string; title: string; chapterNumber: number; topics: Topic[] };
+type Subject = { id: string; name: string; chapters: Chapter[] };
+
+export default function AdminNotesPage() {
+  const [token, setToken] = useState('');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectId, setSubjectId] = useState('');
+  const [chapterId, setChapterId] = useState('');
+  const [topicId, setTopicId] = useState('');
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [author, setAuthor] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const selectedSubject = subjects.find((item) => item.id === subjectId);
+  const chapters = selectedSubject?.chapters || [];
+  const selectedChapter = chapters.find((item) => item.id === chapterId);
+  const topics = selectedChapter?.topics || [];
+
+  const fileSizeLabel = useMemo(() => file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : '', [file]);
+
+  async function loadSubjects() {
+    setMessage('');
+    setLoadingTopics(true);
+    try {
+      const response = await fetch('/api/admin/notes', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not authenticate.');
+      setSubjects(data.subjects || []);
+      setMessage('Access verified. Select a topic to upload its note.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load subjects.');
+    } finally {
+      setLoadingTopics(false);
+    }
+  }
+
+  async function uploadNote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!file) {
+      setMessage('Please choose a PDF or image file.');
+      return;
+    }
+    setUploading(true);
+    setMessage('');
+    try {
+      const body = new FormData();
+      body.set('subjectId', subjectId);
+      body.set('chapterId', chapterId);
+      body.set('topicId', topicId);
+      body.set('title', title);
+      body.set('summary', summary);
+      body.set('author', author);
+      body.set('file', file);
+
+      const response = await fetch('/api/admin/notes', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Upload failed.');
+      setMessage(`Success: “${data.note.title}” uploaded and linked to the selected topic.`);
+      setTitle('');
+      setSummary('');
+      setAuthor('');
+      setFile(null);
+      const input = document.getElementById('note-file') as HTMLInputElement | null;
+      if (input) input.value = '';
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <div className="rounded-2xl bg-slate-900 p-6 text-white">
+        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Admin tools</p>
+        <h1 className="mt-2 text-2xl font-bold">Topic-wise Study Note Upload</h1>
+        <p className="mt-2 text-sm text-slate-300">Upload a PDF or image directly to Google Drive and link it to the selected topic.</p>
+      </div>
+
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <label htmlFor="admin-token" className="block text-sm font-semibold text-slate-800">Admin upload token</label>
+        <p className="mt-1 text-xs text-slate-500">Set ADMIN_UPLOAD_TOKEN in your hosting environment, then enter the same secret here. It is kept only in this page's memory.</p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input id="admin-token" type="password" autoComplete="current-password" value={token} onChange={(event) => setToken(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Enter admin token" />
+          <button type="button" onClick={loadSubjects} disabled={!token || loadingTopics} className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{loadingTopics ? 'Checking…' : 'Unlock upload form'}</button>
+        </div>
+      </section>
+
+      {subjects.length > 0 && (
+        <form onSubmit={uploadNote} className="mt-6 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">1. Subject</label>
+            <select required value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setChapterId(''); setTopicId(''); }} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+              <option value="">Select subject</option>
+              {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">2. Chapter</label>
+            <select required value={chapterId} onChange={(event) => { setChapterId(event.target.value); setTopicId(''); }} disabled={!subjectId} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+              <option value="">Select chapter</option>
+              {chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>Chapter {chapter.chapterNumber}: {chapter.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">3. Topic</label>
+            <select required value={topicId} onChange={(event) => setTopicId(event.target.value)} disabled={!chapterId} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
+              <option value="">Select topic</option>
+              {topics.map((topic) => <option key={topic.id} value={topic.id}>Topic {topic.topicNumber}: {topic.title}</option>)}
+            </select>
+            {chapterId && topics.length === 0 && <p className="mt-1 text-xs text-amber-700">No topics exist in this chapter yet. Add the topic before uploading its note.</p>}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">4. Note title</label>
+            <input required maxLength={180} value={title} onChange={(event) => setTitle(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="e.g. Detailed notes on electromagnetic induction" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Short description (optional)</label>
+            <textarea rows={3} maxLength={2000} value={summary} onChange={(event) => setSummary(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="What does this note cover?" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Author (optional)</label>
+            <input maxLength={120} value={author} onChange={(event) => setAuthor(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Author or teacher name" />
+          </div>
+          <div>
+            <label htmlFor="note-file" className="mb-1 block text-sm font-semibold text-slate-700">5. Select PDF or image (maximum 4 MB)</label>
+            <input id="note-file" required type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-slate-300 p-3 text-sm" />
+            {file && <p className="mt-1 text-xs text-slate-500">{file.name} · {fileSizeLabel}</p>}
+          </div>
+          <button type="submit" disabled={uploading || !topicId || topics.length === 0} className="w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">{uploading ? 'Uploading to Google Drive…' : 'Upload note to this topic'}</button>
+        </form>
+      )}
+
+      {message && <p role="status" className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{message}</p>}
+    </div>
+  );
+}
