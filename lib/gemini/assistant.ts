@@ -25,43 +25,6 @@ export async function processAcademicAssistantQuery(
     return buildIdentityResponse(identityIntent, fallbackLanguage(trimmed));
   }
   const hasBanglaChars = /[\u0980-\u09FF]/.test(trimmed);
-  // Deterministic aliases for the chapter confirmed in the PHYS-405 live page.
-  // This bypasses Gemini keyword expansion so a chapter-opening request cannot
-  // accidentally return unrelated chapters from the same subject.
-  if (isElectromagneticWavesChapterRequest(trimmed)) {
-    const chapter = await prisma.chapter.findFirst({
-      where: {
-        chapterNumber: 4,
-        subject: { code: 'PHYS-405' },
-      },
-      include: { subject: true },
-    });
-
-    if (chapter) {
-      const language = fallbackLanguage(trimmed);
-      return {
-        answer: language === 'en'
-          ? 'Opening Chapter 04: Electromagnetic Waves.'
-          : language === 'mixed'
-            ? 'Chapter 04 Electromagnetic Waves open korchi.'
-            : 'চতুর্থ অধ্যায়: তড়িৎ চৌম্বক তরঙ্গ খুলে দিচ্ছি।',
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: chapter.subject.name,
-          chapterNumber: chapter.chapterNumber,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: chapter.id,
-          type: 'CHAPTER',
-          title: `Chapter ${String(chapter.chapterNumber).padStart(2, '0')}: ${chapter.title}`,
-          contextLabel: chapter.subject.name,
-          href: `/chapters/${chapter.id}`,
-        }],
-        suggestions: [],
-      };
-    }
-  }
 
   const hasLatinChars = /[a-zA-Z]/.test(trimmed);
   const fallbackLang: 'en' | 'bn' | 'mixed' =
@@ -116,6 +79,38 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
     } catch (err) {
       console.warn('Gemini intent parsing fell back to deterministic keyword parser:', err);
     }
+  }
+
+  // Universal chapter navigation: resolve the requested chapter against live database rows.
+  if (isChapterNavigationRequest(trimmed)) {
+    const matches = await findChapterNavigationMatches(trimmed, parsed.keywords, parsed.chapterNumber);
+    if (matches.length === 1) {
+      const chapter = matches[0];
+      const language = parsed.language || fallbackLang;
+      return {
+        answer: language === 'en' ? `Opening ${chapter.title}.` : language === 'mixed' ? `${chapter.title} open korchi.` : `${chapter.title} খুলে দিচ্ছি।`,
+        detectedLanguage: language,
+        interpretedIntent: { subjectQuery: chapter.subject.name, chapterNumber: chapter.chapterNumber, resourceFilter: 'INFO' },
+        resources: [{ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` }],
+        navigationTarget: { type: 'CHAPTER', href: `/chapters/${chapter.id}` },
+        suggestions: [],
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        answer: parsed.language === 'en' ? 'I found multiple matching chapters. Please choose the correct one below.' : parsed.language === 'mixed' ? 'Ekadhik matching chapter peyechi. Nicher list theke subject shoho thik chapter-ti select korun.' : 'একাধিক মিল থাকা চ্যাপ্টার পেয়েছি। নিচের তালিকা থেকে Subject-সহ সঠিক Chapter-টি নির্বাচন করুন।',
+        detectedLanguage: parsed.language,
+        interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
+        resources: matches.slice(0, 8).map((chapter) => ({ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` })),
+        suggestions: [],
+      };
+    }
+    return {
+      answer: parsed.language === 'en' ? 'I could not identify that chapter in the database. Please include its subject name or chapter number.' : parsed.language === 'mixed' ? 'Database-e chapter-ti identify korte parini. Subject-er naam ba chapter number diye abar bolun.' : 'ডাটাবেজে এই নামে নির্দিষ্ট Chapter শনাক্ত করতে পারিনি। Subject-এর নাম অথবা Chapter নম্বরসহ আবার বলুন।',
+      detectedLanguage: parsed.language,
+      interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
+      resources: [], suggestions: [],
+    };
   }
 
   // Query PostgreSQL as the strict source of truth
@@ -260,17 +255,46 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
   };
 }
 
-function isElectromagneticWavesChapterRequest(query: string): boolean {
-  const normalized = query.toLowerCase()
-    .normalize('NFC')
-    .replace(/[\s\p{P}\p{S}]+/gu, '');
+function normalizeChapterText(value: string): string {
+  return value.toLocaleLowerCase('en').normalize('NFKC')
+    .replace(/[ড়ঢ়]/g, 'ড়').replace(/য়/g, 'য়')
+    .replace(/তড়িৎচুম্বকীয়|তড়িৎচুম্বকীয়|তড়িৎচৌম্বকীয়/g, 'তড়িৎ চৌম্বক')
+    .replace(/[^a-z0-9\u0980-\u09ff]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
-  const hasElectric = normalized.includes('তড়িৎ') || normalized.includes('তড়িৎ') || normalized.includes('electromagnetic') || normalized.includes('electromagnet');
-  const hasMagnetic = normalized.includes('চুম্বক') || normalized.includes('চৌম্বক') ||
-    normalized.includes('electromagnetic') || normalized.includes('electromagnet');
-  const hasWave = normalized.includes('তরঙ্গ') || normalized.includes('wave');
+function isChapterNavigationRequest(query: string): boolean {
+  return /(খুলে দাও|খুলে দিন|খুলে দে|নিয়ে যাও|নিয়ে যাও|যেতে চাই|দেখাও|ওপেন কর|open|go to|take me to|navigate|visit).*(অধ্যায়|অধ্যায়|চ্যাপ্টার|chapter|unit)|((অধ্যায়|অধ্যায়|চ্যাপ্টার|chapter).*(খুলে|open|দেখাও|যাও|নিয়ে যাও|নিয়ে যাও))/iu.test(query);
+}
 
-  return hasElectric && hasMagnetic && hasWave;
+async function findChapterNavigationMatches(query: string, keywords: string[], chapterNumber?: number) {
+  const chapters = await prisma.chapter.findMany({ include: { subject: true } });
+  const stopWords = new Set(['please','open','show','me','take','go','to','the','chapter','chapters','unit','অধ্যায়','অধ্যায়','চ্যাপ্টার','খুলে','দাও','দিন','দে','নিয়ে','নিয়ে','যাও','দেখাও','আমাকে','এর','টা','টি','এই','ওই']);
+  const normalizedQuery = normalizeChapterText(query);
+  const queryTokens = new Set(normalizedQuery.split(' ').filter((token) => token.length > 1 && !stopWords.has(token)));
+  const keywordTexts = keywords.map(normalizeChapterText).filter(Boolean);
+  const scored = chapters.map((chapter) => {
+    const title = normalizeChapterText(chapter.title);
+    const slug = normalizeChapterText(chapter.slug);
+    const titleTokens = new Set((title + ' ' + slug).split(' ').filter((token) => token.length > 1));
+    let score = 0;
+    if (normalizedQuery && title.length > 3 && normalizedQuery.includes(title)) score += 12;
+    for (const term of keywordTexts) {
+      if (term.length > 2 && title.includes(term)) score += 10;
+      const parts = term.split(' ').filter((token) => token.length > 1);
+      const overlap = parts.filter((token) => titleTokens.has(token)).length;
+      if (parts.length) score += (overlap / parts.length) * 7;
+    }
+    const overlap = [...queryTokens].filter((token) => titleTokens.has(token)).length;
+    if (queryTokens.size) score += (overlap / queryTokens.size) * 8;
+    if (chapterNumber && chapter.chapterNumber === chapterNumber && overlap > 0) score += 1.5;
+    return { chapter, score, overlap };
+  }).filter((item) => item.score >= 5 && item.overlap > 0);
+  scored.sort((left, right) => right.score - left.score);
+  if (!scored.length) return [];
+  const bestScore = scored[0].score;
+  const close = scored.filter((item) => item.score >= Math.max(5, bestScore - 1.5));
+  if (close.length === 1 && bestScore >= 7) return [close[0].chapter];
+  return close.slice(0, 8).map((item) => item.chapter);
 }
 
 function extractFallbackKeywords(query: string): string[] {
