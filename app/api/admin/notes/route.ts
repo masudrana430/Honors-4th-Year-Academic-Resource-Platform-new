@@ -83,7 +83,10 @@ export async function POST(request: NextRequest) {
     if (!subjectId || !chapterId || !topicId || !title) {
       return NextResponse.json({ error: 'Subject, chapter, topic and note title are required.' }, { status: 400 });
     }
-    if (title.length > 180 || summary.length > 2000 || author.length > 120) {\n      return NextResponse.json({ error: 'Title, description or author exceeds the allowed length.' }, { status: 400 });\n    }\n    if (!(file instanceof File)) {
+    if (title.length > 180 || summary.length > 2000 || author.length > 120) {
+      return NextResponse.json({ error: 'Title, description or author exceeds the allowed length.' }, { status: 400 });
+    }
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: 'Choose a PDF, JPG, PNG or WEBP file.' }, { status: 400 });
     }
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
@@ -94,7 +97,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only PDF, JPG, PNG and WEBP files are supported.' }, { status: 400 });
     }
 
-    const bytes = Buffer.from(await file.arrayBuffer());\n    if (!hasValidFileSignature(bytes, file.type)) {\n      return NextResponse.json({ error: 'The file content does not match its selected PDF or image type.' }, { status: 400 });\n    }\n\n    const topic = await prisma.topic.findFirst({
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (!hasValidFileSignature(bytes, file.type)) {
+      return NextResponse.json({ error: 'The file content does not match its selected PDF or image type.' }, { status: 400 });
+    }
+
+    const topic = await prisma.topic.findFirst({
       where: { id: topicId, chapterId, subjectId },
       include: { chapter: { include: { subject: true } } },
     });
