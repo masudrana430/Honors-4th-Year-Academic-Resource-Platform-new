@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { prisma } from '@/lib/prisma/client';
 import { ensureDriveFolderHierarchy, getGoogleDriveClient } from '@/lib/google-drive/driveClient';
@@ -22,20 +21,7 @@ function hasValidFileSignature(bytes: Buffer, mimeType: string): boolean {
   return false;
 }
 
-function isAuthorized(request: NextRequest): boolean {
-  const expected = process.env.ADMIN_UPLOAD_TOKEN;
-  const supplied = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  if (!expected || !supplied) return false;
-  const expectedBuffer = Buffer.from(expected);
-  const suppliedBuffer = Buffer.from(supplied);
-  return expectedBuffer.length === suppliedBuffer.length && timingSafeEqual(expectedBuffer, suppliedBuffer);
-}
-
-export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized. Check the admin upload token.' }, { status: 401 });
-  }
-
+export async function GET(_request: NextRequest) {
   try {
     const subjects = await prisma.subject.findMany({
       orderBy: { name: 'asc' },
@@ -64,10 +50,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized. Check the admin upload token.' }, { status: 401 });
-  }
-
   let uploadedDriveFileId: string | undefined;
 
   try {
@@ -191,6 +173,35 @@ export async function POST(request: NextRequest) {
     console.error('Admin topic note upload error:', error);
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Upload failed. Check server logs and Google Drive configuration.',
+    }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { noteId } = await request.json();
+    if (typeof noteId !== 'string' || !noteId.trim()) {
+      return NextResponse.json({ error: 'A valid note ID is required.' }, { status: 400 });
+    }
+
+    const note = await prisma.studyNote.findUnique({
+      where: { id: noteId },
+      include: { files: true },
+    });
+    if (!note) return NextResponse.json({ error: 'Note not found.' }, { status: 404 });
+
+    const drive = getGoogleDriveClient();
+    for (const file of note.files) {
+      await drive.files.delete({ fileId: file.driveFileId });
+    }
+    await prisma.studyNote.delete({ where: { id: noteId } });
+
+    return NextResponse.json({ message: 'Note and its uploaded files were deleted.' });
+  } catch (error) {
+    console.error('Public note deletion error:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Could not delete this note.',
     }, { status: 500 });
   }
 }
