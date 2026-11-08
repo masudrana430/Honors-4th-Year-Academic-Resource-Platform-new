@@ -16,7 +16,7 @@ const ALLOWED_TYPES: Record<string, 'PDF' | 'JPG' | 'PNG' | 'WEBP'> = {
 
 function isAuthorized(request: NextRequest): boolean {
   const expected = process.env.ADMIN_UPLOAD_TOKEN;
-  const supplied = request.headers.get('authorization')?.replace(/^Bearer\\s+/i, '');
+  const supplied = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!expected || !supplied) return false;
   const expectedBuffer = Buffer.from(expected);
   const suppliedBuffer = Buffer.from(supplied);
