@@ -40,7 +40,7 @@ export function AcademicAIAssistant() {
   const startListeningRef = useRef<() => void>(() => undefined);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', sender: 'assistant', text: 'আসসালামু আলাইকুম! আমি Campus Assistant। কোন subject, chapter, lecture বা PDF note লাগবে? বাংলায়, English-এ অথবা Banglish-এ বলুন।' },
+    { id: 'welcome', sender: 'assistant', text: 'আসসালামুয়ালাইকুম! আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন? আপনি বাংলায়, English অথবা Banglish-এ কথা বলতে পারেন।' },
   ]);
 
   useEffect(() => {
@@ -201,8 +201,10 @@ export function AcademicAIAssistant() {
     setVoiceStatus('Voice Assistant চালু হচ্ছে...');
     speak(
       voiceLanguage === 'en-US'
-        ? 'Hello! I am Campus Assistant. Which subject or chapter do you need?'
-        : 'হ্যালো! আমি Campus Assistant। আপনার কোন subject বা chapter লাগবে?',
+        ? 'Assalamu Alaikum! I am Campus Assistant. I was created by Masud Rana. Which chapter do you need?'
+        : voiceLanguage === 'mixed'
+          ? 'আসসালামুয়ালাইকুম! Ami Campus Assistant. Amake Masud Rana build korechen. Bolun, apnar kon chapter-ti proyojon?'
+          : 'আসসালামুয়ালাইকুম! আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন?',
       () => {
         if (voiceModeRef.current) startListeningRef.current();
       }
