@@ -65,7 +65,10 @@ export default async function ChapterDetailsPage({
                           <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                             {file.fileType} • {(file.fileSize / 1024).toFixed(0)} KB
                           </span>
-                          <p className="mt-1.5 text-xs font-semibold text-slate-900 break-all">{file.studyNote?.title || file.fileName}</p>\n                          {file.studyNote?.summary && <p className="mt-1 text-xs text-slate-600">{file.studyNote.summary}</p>}\n                          {file.studyNote?.author && <p className="mt-1 text-[11px] text-slate-500">By {file.studyNote.author}</p>}\n                          <p className="mt-1 text-[11px] text-slate-500 break-all">{file.fileName}</p>
+                          <p className="mt-1.5 text-xs font-semibold text-slate-900 break-all">{file.studyNote?.title || file.fileName}</p>
+                          {file.studyNote?.summary && <p className="mt-1 text-xs text-slate-600">{file.studyNote.summary}</p>}
+                          {file.studyNote?.author && <p className="mt-1 text-[11px] text-slate-500">By {file.studyNote.author}</p>}
+                          <p className="mt-1 text-[11px] text-slate-500 break-all">{file.fileName}</p>
                           <p className="text-[11px] text-slate-400">{file.driveFolderPath}</p>
                         </div>
                         <div className="mt-3 flex items-center gap-2">
