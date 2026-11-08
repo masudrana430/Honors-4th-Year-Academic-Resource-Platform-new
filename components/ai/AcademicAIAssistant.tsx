@@ -155,9 +155,15 @@ export function AcademicAIAssistant() {
       const data: AIChatResponsePayload = await response.json();
       const answer = data.answer || 'Here are the matching database resources:';
       setMessages((prev) => [...prev, { id: 'a-' + Date.now(), sender: 'assistant', text: answer, payload: data }]);
-      const chapterHrefs = Array.from(new Set((data.resources || [])
-        .filter((item) => item.type === 'CHAPTER' && item.href.startsWith('/chapters/'))
-        .map((item) => item.href)));
+      // A voice request may return a Chapter, YouTube lecture, PDF, or image.
+      // These resource cards can all point to the same canonical chapter page.
+      // Redirect only when every chapter-backed result resolves to one unique,
+      // same-origin /chapters/:id route; never navigate to a model-generated URL.
+      const chapterHrefs = Array.from(new Set(
+        (data.resources || [])
+          .map((item) => item.href)
+          .filter((href) => /^\/chapters\/[A-Za-z0-9_-]+$/.test(href))
+      ));
       const targetHref = chapterHrefs.length === 1 ? chapterHrefs[0] : null;
       if (fromVoice && voiceModeRef.current) {
         setVoiceStatus(targetHref
