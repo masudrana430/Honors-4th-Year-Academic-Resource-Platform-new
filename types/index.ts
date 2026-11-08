@@ -137,5 +137,6 @@ export interface AIChatResponsePayload {
     resourceFilter: 'ALL' | 'VIDEO' | 'NOTES' | 'INFO';
   };
   resources: AIChatResourceLink[];
+  navigationTarget?: { type: 'CHAPTER'; href: string };
   suggestions: string[];
 }
