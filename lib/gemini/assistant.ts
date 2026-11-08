@@ -81,8 +81,10 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
     }
   }
 
-  // Universal chapter navigation: resolve the requested chapter against live database rows.
-  if (isChapterNavigationRequest(trimmed)) {
+  // Resolve explicit navigation requests and chapter-title-only queries before broad resource search.
+  const explicitChapterNavigation = isChapterNavigationRequest(trimmed);
+  const chapterTitleOnlyQuery = !explicitChapterNavigation && isChapterNameOnlyRequest(trimmed);
+  if (explicitChapterNavigation || chapterTitleOnlyQuery) {
     const matches = await findChapterNavigationMatches(trimmed, parsed.keywords, parsed.chapterNumber);
     if (matches.length === 1) {
       const chapter = matches[0];
@@ -105,12 +107,14 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
         suggestions: [],
       };
     }
-    return {
-      answer: parsed.language === 'en' ? 'I could not identify that chapter in the database. Please include its subject name or chapter number.' : parsed.language === 'mixed' ? 'Database-e chapter-ti identify korte parini. Subject-er naam ba chapter number diye abar bolun.' : 'ডাটাবেজে এই নামে নির্দিষ্ট Chapter শনাক্ত করতে পারিনি। Subject-এর নাম অথবা Chapter নম্বরসহ আবার বলুন।',
-      detectedLanguage: parsed.language,
-      interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
-      resources: [], suggestions: [],
-    };
+    if (explicitChapterNavigation) {
+      return {
+        answer: parsed.language === 'en' ? 'I could not identify that chapter in the database. Please include its subject name or chapter number.' : parsed.language === 'mixed' ? 'Database-e chapter-ti identify korte parini. Subject-er naam ba chapter number diye abar bolun.' : 'ডাটাবেজে এই নামে নির্দিষ্ট Chapter শনাক্ত করতে পারিনি। Subject-এর নাম অথবা Chapter নম্বরসহ আবার বলুন।',
+        detectedLanguage: parsed.language,
+        interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
+        resources: [], suggestions: [],
+      };
+    }
   }
 
   // Query PostgreSQL as the strict source of truth
@@ -258,12 +262,21 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
 function normalizeChapterText(value: string): string {
   return value.toLocaleLowerCase('en').normalize('NFKC')
     .replace(/[ড়ঢ়]/g, 'ড়').replace(/য়/g, 'য়')
+    .replace(/পারিসংখ্যান/g, 'পরিসংখ্যান')
     .replace(/তড়িৎচুম্বকীয়|তড়িৎচুম্বকীয়|তড়িৎচৌম্বকীয়/g, 'তড়িৎ চৌম্বক')
     .replace(/[^a-z0-9\u0980-\u09ff]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function isChapterNavigationRequest(query: string): boolean {
   return /(খুলে দাও|খুলে দিন|খুলে দে|নিয়ে যাও|নিয়ে যাও|যেতে চাই|দেখাও|ওপেন কর|open|go to|take me to|navigate|visit).*(অধ্যায়|অধ্যায়|চ্যাপ্টার|chapter|unit)|((অধ্যায়|অধ্যায়|চ্যাপ্টার|chapter).*(খুলে|open|দেখাও|যাও|নিয়ে যাও|নিয়ে যাও))/i.test(query);
+}
+
+function isChapterNameOnlyRequest(query: string): boolean {
+  const normalized = normalizeChapterText(query);
+  if (!normalized || normalized.split(' ').length < 2) return false;
+  // Requests for notes, videos, lectures, subject lists, or explanations remain resource searches.
+  if (/(video|youtube|class|lecture|pdf|note|notes|image|resource|subject|all subjects|ক্লাস|ভিডিও|নোট|পিডিএফ|বিষয়|বিষয়|সকল বিষয়|সব বিষয়|ব্যাখ্যা|বুঝিয়ে|সমাধান)/i.test(normalized)) return false;
+  return true;
 }
 
 async function findChapterNavigationMatches(query: string, keywords: string[], chapterNumber?: number) {
