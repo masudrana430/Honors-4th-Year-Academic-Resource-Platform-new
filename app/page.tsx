@@ -46,9 +46,13 @@ export default async function HomePage() {
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
-                type="text"
+                type="search"
                 name="q"
-                placeholder="Search subjects, chapters, topics, Quantum Theory, Molecular Spectra..."
+                required
+                minLength={2}
+                placeholder="বাংলা, English বা Banglish-এ Subject, Chapter, Topic, PDF বা Class খুঁজুন..."
+                aria-label="Search academic resources"
+                autoComplete="off"
                 className="w-full rounded-xl bg-white pl-10 pr-4 py-2.5 text-sm text-slate-900 focus:outline-none"
               />
             </div>
