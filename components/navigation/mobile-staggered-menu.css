@@ -13,8 +13,9 @@
 .honors-mobile-nav__toggle-icon{display:grid;place-items:center;transition:transform .55s cubic-bezier(.2,.8,.2,1)}
 .honors-mobile-nav[data-open=true] .honors-mobile-nav__toggle-icon{transform:rotate(180deg)}
 .honors-mobile-nav__toggle-label{display:block;overflow:hidden;height:1em}
-.honors-mobile-nav__toggle-label span{display:block;transition:transform .55s cubic-bezier(.2,.8,.2,1)}
-.honors-mobile-nav[data-open=true] .honors-mobile-nav__toggle-label span{transform:translateY(-1.15em)}
+.honors-mobile-nav__toggle-words{display:flex;flex-direction:column;line-height:1;transition:transform .55s cubic-bezier(.2,.8,.2,1)}
+.honors-mobile-nav__toggle-words span{height:1em;display:block}
+.honors-mobile-nav[data-open=true] .honors-mobile-nav__toggle-words{transform:translateY(-1em)}
 .honors-mobile-nav__backdrop{position:fixed;inset:68px 0 0;background:rgba(2,6,23,.38);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .35s,visibility .35s;z-index:1;border:0}
 .honors-mobile-nav[data-open=true] .honors-mobile-nav__backdrop{opacity:1;visibility:visible;pointer-events:auto}
 .honors-mobile-nav__layers{position:fixed;inset:68px 0 0;z-index:2;pointer-events:none;overflow:hidden}
