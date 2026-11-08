@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     const results: SearchResultItem[] = [];
     const searchTerms = q ? Array.from(new Set(normalizeSearchText(q).split(' ').filter((term) => term.length > 1))).slice(0, 8) : [];
-    const containsAny = (fields: string[]) => searchTerms.flatMap((term) =>
+    const containsAny = (fields: string[]): any[] => searchTerms.flatMap((term) =>
       fields.map((field) => ({ [field]: { contains: term, mode: 'insensitive' as const } }))
     );
 
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (typeFilter === 'ALL' || typeFilter === 'CHAPTER') {
-      const numMatch = q.match(/^\d+$/);
+      const numMatch = q.match(/^(?:chapter|ch\.?|অধ্যায়|অধ্যায়|চ্যাপ্টার)?\s*0*(\d+)$/i);
       const chapters = await prisma.chapter.findMany({
         where: q
           ? {
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
             }
           : undefined,
         include: { chapter: { include: { subject: true } } },
-        take: 25,
+        take: 100,
       });
       for (const t of topics) {
         results.push({
