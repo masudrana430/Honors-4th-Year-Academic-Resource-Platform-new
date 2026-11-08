@@ -44,6 +44,7 @@ export function AcademicAIAssistant() {
   ]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       voiceModeRef.current = false;
