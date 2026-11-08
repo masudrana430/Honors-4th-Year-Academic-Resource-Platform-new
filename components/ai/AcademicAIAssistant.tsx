@@ -196,6 +196,22 @@ export function AcademicAIAssistant() {
     }
   };
 
+  const navigateToResource = (href: string) => {
+    // Only allow same-origin app routes; never navigate to protocol-relative URLs.
+    if (!href.startsWith('/') || href.startsWith('//')) return;
+    voiceModeRef.current = false;
+    setVoiceMode(false);
+    setIsListening(false);
+    setIsSpeaking(false);
+    recognitionRef.current?.stop?.();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsOpen(false);
+    setIsFullScreen(false);
+    router.push(href);
+  };
+
   const startVoiceMode = () => {
     setIsOpen(true);
     voiceModeRef.current = true;
@@ -264,7 +280,7 @@ export function AcademicAIAssistant() {
                       </div>
                       <p className="mt-1 text-xs font-semibold text-slate-900 dark:text-white">{resource.title}</p>
                       <div className="mt-2 flex items-center gap-2">
-                        <Link href={resource.href} className="text-xs font-medium text-indigo-600 hover:underline">Open in Platform →</Link>
+                        <button type="button" onClick={() => navigateToResource(resource.href)} className="text-xs font-medium text-indigo-600 hover:underline">Open in Platform →</button>
                         {resource.externalUrl && <a href={resource.externalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"><span>Direct Resource</span><ExternalLink className="h-3 w-3" /></a>}
                       </div>
                     </div>
