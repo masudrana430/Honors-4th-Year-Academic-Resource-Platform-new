@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma/client';
 import { buildGoogleDriveUrls } from '@/lib/google-drive/driveClient';
+import PublicNoteDeleteButton from '@/components/notes/PublicNoteDeleteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,7 @@ export default async function ChapterDetailsPage({
                 </span>
                 <h3 className="text-base font-bold text-slate-900">{topic.title}</h3>
                 <p className="mt-1 text-xs text-slate-600">{topic.description}</p>
+                <a href="/notes/upload" className="mt-2 inline-flex rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">Upload a note to this topic</a>
               </div>
               {topic.files.length === 0 ? (
                 <p className="text-xs italic text-slate-500">No Google Drive PDF or Image notes linked to this topic yet.</p>
@@ -80,6 +82,7 @@ export default async function ChapterDetailsPage({
                           >
                             {file.fileType === 'PDF' ? 'Open PDF' : 'Preview Image'}
                           </a>
+                          <PublicNoteDeleteButton noteId={file.studyNoteId || ''} />
                           <a
                             href={driveUrls.downloadUrl}
                             target="_blank"
