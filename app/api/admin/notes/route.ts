@@ -118,7 +118,6 @@ export async function POST(request: NextRequest) {
     ]);
 
     const drive = getGoogleDriveClient();
-    const bytes = Buffer.from(await file.arrayBuffer());
     const driveResponse = await drive.files.create({
       requestBody: {
         name: file.name.split(String.fromCharCode(92)).join('_').replaceAll('/', '_'),
