@@ -20,7 +20,6 @@ function scoreSearchResult(query: string, item: SearchResultItem): number {
   const context = normalizeSearchText([
     item.subtitle, item.subjectName, item.chapterTitle, item.topicTitle,
   ].filter(Boolean).join(' '));
-  const fullText = normalizeSearchText(title + ' ' + context);
   const tokens = q.split(' ').filter((token) => token.length > 1);
   if (!tokens.length) return 0;
 
@@ -110,7 +109,13 @@ export async function GET(request: NextRequest) {
       const topics = await prisma.topic.findMany({
         where: q
           ? {
-              OR: containsAny(['title', 'description']),
+              OR: [
+                ...containsAny(['title', 'description']),
+                ...searchTerms.flatMap((term) => [
+                  { chapter: { title: { contains: term, mode: 'insensitive' as const } } },
+                  { chapter: { subject: { name: { contains: term, mode: 'insensitive' as const } } } },
+                ]),
+              ],
             }
           : undefined,
         include: { chapter: { include: { subject: true } } },
@@ -136,8 +141,11 @@ export async function GET(request: NextRequest) {
         where: q
           ? {
               OR: [
-                { title: { contains: q, mode: 'insensitive' } },
-                { shortDescription: { contains: q, mode: 'insensitive' } },
+                ...containsAny(['title', 'shortDescription']),
+                ...searchTerms.flatMap((term) => [
+                  { subject: { name: { contains: term, mode: 'insensitive' as const } } },
+                  { chapter: { title: { contains: term, mode: 'insensitive' as const } } },
+                ]),
               ],
             }
           : undefined,
