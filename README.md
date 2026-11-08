@@ -66,3 +66,14 @@ This repository includes a ready-to-use `render.yaml` Blueprint:
    npm run start
    ```
 5. Add your environment variables (`DATABASE_URL`, `GEMINI_API_KEY`, `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_CLIENT_EMAIL`, `GOOGLE_DRIVE_PRIVATE_KEY`) in Render's **Environment** tab.
+
+
+## 5. Admin Topic-wise Study Note Upload
+
+1. Set a strong, random `ADMIN_UPLOAD_TOKEN` environment variable in your local `.env` and production hosting environment. Never use a `NEXT_PUBLIC_` prefix and never commit the real secret.
+2. Configure the Google Drive service account and root folder as described above. The service account needs Editor access to the root folder. Uploaded files are shared as **Anyone with the link — Viewer** so students can open them.
+3. Open `/admin/notes`, enter the admin token, then choose Subject → Chapter → Topic.
+4. Add a note title and optional description/author, select a PDF/JPG/PNG/WEBP file (maximum 4 MB), and upload.
+5. The server uploads the file into the matching Google Drive topic folder and creates the linked StudyNote and File records in PostgreSQL. The existing chapter page displays the file under that topic.
+
+The admin upload API is protected by the bearer token. The token is held in the page's memory only and is not saved to browser storage. If the token is missing or incorrect, the API returns 401.
