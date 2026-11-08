@@ -155,29 +155,35 @@ export function AcademicAIAssistant() {
       const data: AIChatResponsePayload = await response.json();
       const answer = data.answer || 'Here are the matching database resources:';
       setMessages((prev) => [...prev, { id: 'a-' + Date.now(), sender: 'assistant', text: answer, payload: data }]);
-      // A voice request may return a Chapter, YouTube lecture, PDF, or image.
-      // These resource cards can all point to the same canonical chapter page.
-      // Redirect only when every chapter-backed result resolves to one unique,
-      // same-origin /chapters/:id route; never navigate to a model-generated URL.
+      // Auto-open only when the database returned exactly one distinct
+      // chapter page. Never navigate to a model-generated or external URL.
       const chapterHrefs = Array.from(new Set(
         (data.resources || [])
+          .filter((item) => item.type === 'CHAPTER')
           .map((item) => item.href)
           .filter((href) => /^\/chapters\/[A-Za-z0-9_-]+$/.test(href))
       ));
       const targetHref = chapterHrefs.length === 1 ? chapterHrefs[0] : null;
-      if (fromVoice && voiceModeRef.current) {
-        setVoiceStatus(targetHref
-          ? 'Chapter পাওয়া গেছে। উত্তর শোনানোর পর page খুলবে...'
-          : 'উত্তর দিচ্ছি... এরপর আবার কথা বলতে পারবেন।');
+
+      if (targetHref) {
+        // Close the assistant before navigation so the chapter page is fully visible.
+        voiceModeRef.current = false;
+        setVoiceMode(false);
+        setIsListening(false);
+        setIsSpeaking(false);
+        recognitionRef.current?.stop?.();
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        setIsOpen(false);
+        setIsFullScreen(false);
+        router.push(targetHref);
+      } else if (fromVoice && voiceModeRef.current) {
+        setVoiceStatus('উত্তর দিচ্ছি... এরপর আবার কথা বলতে পারবেন।');
         speak(answer, () => {
-          if (!mountedRef.current || !voiceModeRef.current) return;
-          if (targetHref) {
-            setVoiceStatus('আপনার Chapter page খুলছি...');
-            router.push(targetHref);
+          if (voiceModeRef.current) {
+            window.setTimeout(() => startListeningRef.current(), 500);
           }
-          window.setTimeout(() => {
-            if (voiceModeRef.current) startListeningRef.current();
-          }, targetHref ? 1400 : 500);
         });
       }
     } catch {
