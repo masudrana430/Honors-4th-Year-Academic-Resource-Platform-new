@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
       },
       media: { mimeType: file.type, body: Readable.from(bytes) },
       fields: 'id, webViewLink, size',
+      supportsAllDrives: true,
     });
 
     uploadedDriveFileId = driveResponse.data.id || undefined;
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
       fileId: uploadedDriveFileId,
       requestBody: { type: 'anyone', role: 'reader' },
       fields: 'id',
+      supportsAllDrives: true,
     });
 
     const driveShareUrl = driveResponse.data.webViewLink ||
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (uploadedDriveFileId) {
       try {
-        await getGoogleDriveClient().files.delete({ fileId: uploadedDriveFileId });
+        await getGoogleDriveClient().files.delete({ fileId: uploadedDriveFileId, supportsAllDrives: true });
       } catch (cleanupError) {
         console.error('Could not clean up an unlinked Drive upload:', cleanupError);
       }
@@ -193,7 +195,7 @@ export async function DELETE(request: NextRequest) {
 
     const drive = getGoogleDriveClient();
     for (const file of note.files) {
-      await drive.files.delete({ fileId: file.driveFileId });
+      await drive.files.delete({ fileId: file.driveFileId, supportsAllDrives: true });
     }
     await prisma.studyNote.delete({ where: { id: noteId } });
 
