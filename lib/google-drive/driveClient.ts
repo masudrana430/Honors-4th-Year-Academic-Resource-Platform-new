@@ -2,7 +2,8 @@ import { google, drive_v3 } from 'googleapis';
 
 /**
  * Server-side Google Drive API client using Service Account credentials.
- * Credentials are strictly read from server environment variables and never exposed to the client.
+ * The service account must be a member of a Google Shared Drive because service
+ * accounts do not have personal Drive storage quota.
  */
 export function getGoogleDriveClient(): drive_v3.Drive {
   const clientEmail: string | undefined = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
@@ -64,6 +65,8 @@ export async function ensureDriveFolderHierarchy(
       q: `'${currentParentId}' in parents and name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
     const files: drive_v3.Schema$File[] =
       (listResponse.data as drive_v3.Schema$FileList).files ?? [];
@@ -79,6 +82,7 @@ export async function ensureDriveFolderHierarchy(
           parents: [currentParentId],
         },
         fields: 'id',
+        supportsAllDrives: true,
       });
       const createdId: string | null | undefined =
         (createResponse.data as drive_v3.Schema$File).id;
