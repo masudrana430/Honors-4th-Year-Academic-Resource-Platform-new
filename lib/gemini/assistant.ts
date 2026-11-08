@@ -265,7 +265,7 @@ function isElectromagneticWavesChapterRequest(query: string): boolean {
     .normalize('NFC')
     .replace(/[\s\p{P}\p{S}]+/gu, '');
 
-  const hasElectric = normalized.includes('তড়িৎ') || normalized.includes('তড়িৎ');
+  const hasElectric = normalized.includes('তড়িৎ') || normalized.includes('তড়িৎ') || normalized.includes('electromagnetic') || normalized.includes('electromagnet');
   const hasMagnetic = normalized.includes('চুম্বক') || normalized.includes('চৌম্বক') ||
     normalized.includes('electromagnetic') || normalized.includes('electromagnet');
   const hasWave = normalized.includes('তরঙ্গ') || normalized.includes('wave');
