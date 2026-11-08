@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
               OR: [
                 ...containsAny(['title', 'description']),
                 ...searchTerms.map((term) => ({ subject: { name: { contains: term, mode: 'insensitive' as const } } })),
-                ...(numMatch ? [{ chapterNumber: parseInt(numMatch[0], 10) }] : []),
+                ...(numMatch ? [{ chapterNumber: parseInt(numMatch[1], 10) }] : []),
               ],
             }
           : undefined,
