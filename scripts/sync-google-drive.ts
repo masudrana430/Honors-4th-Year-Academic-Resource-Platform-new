@@ -11,13 +11,13 @@ import { prisma } from '../lib/prisma/client';
 import { ensureDriveFolderHierarchy, buildGoogleDriveUrls } from '../lib/google-drive/driveClient';
 
 async function runSync() {
-  console.log('🔄 Checking Google Drive Service Account configuration...');
-  if (!process.env.GOOGLE_DRIVE_CLIENT_EMAIL || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
+  console.log('🔄 Checking Google Drive OAuth configuration...');
+  if (!process.env.GOOGLE_DRIVE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CLIENT_SECRET || !process.env.GOOGLE_DRIVE_REFRESH_TOKEN || !process.env.GOOGLE_DRIVE_FOLDER_ID) {
     console.log(
-      'ℹ️ GOOGLE_DRIVE_CLIENT_EMAIL or GOOGLE_DRIVE_FOLDER_ID is still set to placeholder values in .env.'
+      'ℹ️ Configure GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN and GOOGLE_DRIVE_FOLDER_ID in .env.'
     );
     console.log(
-      'Configure your Service Account credentials in .env and re-run `npm run drive:sync` to sync folders.'
+      'Complete the personal Gmail OAuth setup and re-run `npm run drive:sync` to sync folders.'
     );
     return;
   }
