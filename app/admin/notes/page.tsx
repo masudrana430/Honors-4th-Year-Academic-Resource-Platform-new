@@ -7,7 +7,6 @@ type Chapter = { id: string; title: string; chapterNumber: number; topics: Topic
 type Subject = { id: string; name: string; chapters: Chapter[] };
 
 export default function AdminNotesPage() {
-  const [token, setToken] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectId, setSubjectId] = useState('');
   const [chapterId, setChapterId] = useState('');
@@ -31,13 +30,11 @@ export default function AdminNotesPage() {
     setMessage('');
     setLoadingTopics(true);
     try {
-      const response = await fetch('/api/admin/notes', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch('/api/admin/notes');
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not authenticate.');
       setSubjects(data.subjects || []);
-      setMessage('Access verified. Select a topic to upload its note.');
+      setMessage('Choose a topic and share your study note with everyone.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not load subjects.');
     } finally {
@@ -47,6 +44,10 @@ export default function AdminNotesPage() {
 
   async function uploadNote(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!subjectId || !chapterId || !topicId) {
+      setMessage('Please select a subject, chapter and topic.');
+      return;
+    }
     if (!file) {
       setMessage('Please choose a PDF or image file.');
       return;
@@ -65,7 +66,6 @@ export default function AdminNotesPage() {
 
       const response = await fetch('/api/admin/notes', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body,
       });
       const data = await response.json();
@@ -87,19 +87,11 @@ export default function AdminNotesPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div className="rounded-2xl bg-slate-900 p-6 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Admin tools</p>
-        <h1 className="mt-2 text-2xl font-bold">Topic-wise Study Note Upload</h1>
-        <p className="mt-2 text-sm text-slate-300">Upload a PDF or image directly to Google Drive and link it to the selected topic.</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Community contributions</p>
+        <h1 className="mt-2 text-2xl font-bold">Share a Study Note</h1>
+        <p className="mt-2 text-sm text-slate-300">Anyone can upload a PDF or image and share topic-wise study materials with all students.</p>
+        <button type="button" onClick={loadSubjects} disabled={loadingTopics} className="mt-4 rounded-xl bg-indigo-500 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{loadingTopics ? 'Loading…' : subjects.length ? 'Refresh subjects' : 'Load subjects and topics'}</button>
       </div>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <label htmlFor="admin-token" className="block text-sm font-semibold text-slate-800">Admin upload token</label>
-        <p className="mt-1 text-xs text-slate-500">Set ADMIN_UPLOAD_TOKEN in your hosting environment, then enter the same secret here. It is kept only in this page's memory.</p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <input id="admin-token" type="password" autoComplete="current-password" value={token} onChange={(event) => setToken(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Enter admin token" />
-          <button type="button" onClick={loadSubjects} disabled={!token || loadingTopics} className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{loadingTopics ? 'Checking…' : 'Unlock upload form'}</button>
-        </div>
-      </section>
 
       {subjects.length > 0 && (
         <form onSubmit={uploadNote} className="mt-6 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
