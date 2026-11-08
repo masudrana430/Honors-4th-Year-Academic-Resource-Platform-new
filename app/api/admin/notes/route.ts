@@ -93,7 +93,6 @@ export async function POST(request: NextRequest) {
     }
 
     const folderId = await ensureDriveFolderHierarchy([
-      'Honors_4th_Year',
       `Subject_${topic.chapter.subject.code || topic.chapter.subject.slug}`,
       `Chapter_${String(topic.chapter.chapterNumber).padStart(2, '0')}`,
       `Topic_${String(topic.topicNumber).padStart(2, '0')}`,
