@@ -313,13 +313,13 @@ function buildIdentityResponse(
   let answer: string;
 
   if (language === 'bn') {
-    if (intent === 'name') answer = \`আমার নাম \${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।\`;
-    else if (intent === 'creator') answer = \`আমাকে তৈরি ও ডেভেলপ করেছেন \${ASSISTANT_CREATOR}।\`;
-    else answer = \`আমি \${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন \${ASSISTANT_CREATOR}।\`;
+    if (intent === 'name') answer = `আমার নাম ${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।`;
+    else if (intent === 'creator') answer = `আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
+    else answer = `আমি ${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
   } else {
-    if (intent === 'name') answer = \`My name is \${ASSISTANT_NAME}. I'm your academic assistant.\`;
-    else if (intent === 'creator') answer = \`I was created and developed by \${ASSISTANT_CREATOR}.\`;
-    else answer = \`I am \${ASSISTANT_NAME}, the AI academic assistant for this Honors 4th Year Academic Resource Platform. I was created and developed by \${ASSISTANT_CREATOR}.\`;
+    if (intent === 'name') answer = `My name is ${ASSISTANT_NAME}. I'm your academic assistant.`;
+    else if (intent === 'creator') answer = `I was created and developed by ${ASSISTANT_CREATOR}.`;
+    else answer = `I am ${ASSISTANT_NAME}, the AI academic assistant for this Honors 4th Year Academic Resource Platform. I was created and developed by ${ASSISTANT_CREATOR}.`;
   }
 
   return {
