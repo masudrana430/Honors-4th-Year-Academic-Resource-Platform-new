@@ -2,6 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
 import { SearchResultItem } from '@/types';
 
+function normalizeSearchText(value: string): string {
+  return value.toLocaleLowerCase('en')
+    .normalize('NFKC')
+    .replace(/[ড়ঢ়]/g, 'ড়')
+    .replace(/য়/g, 'য়')
+    .replace(/[।,;:!?()[\]{}"'’‘“”]/g, ' ')
+    .replace(/[-_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scoreSearchResult(query: string, item: SearchResultItem): number {
+  const q = normalizeSearchText(query);
+  const title = normalizeSearchText(item.title);
+  const context = normalizeSearchText([
+    item.subtitle, item.subjectName, item.chapterTitle, item.topicTitle,
+  ].filter(Boolean).join(' '));
+  const fullText = normalizeSearchText(title + ' ' + context);
+  const tokens = q.split(' ').filter((token) => token.length > 1);
+  if (!tokens.length) return 0;
+
+  let score = 0;
+  if (title === q) score += 100;
+  else if (title.startsWith(q)) score += 55;
+  else if (title.includes(q)) score += 40;
+  if (context.includes(q)) score += 18;
+
+  let matched = 0;
+  for (const token of tokens) {
+    if (title.includes(token)) { score += 12; matched += 1; }
+    else if (context.includes(token)) { score += 5; matched += 1; }
+  }
+  score += (matched / tokens.length) * 15;
+  if (matched === 0) return 0;
+  return score;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -12,19 +49,19 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(30, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10)));
 
     const results: SearchResultItem[] = [];
+    const searchTerms = q ? Array.from(new Set(normalizeSearchText(q).split(' ').filter((term) => term.length > 1))).slice(0, 8) : [];
+    const containsAny = (fields: string[]) => searchTerms.flatMap((term) =>
+      fields.map((field) => ({ [field]: { contains: term, mode: 'insensitive' as const } }))
+    );
 
     if (typeFilter === 'ALL' || typeFilter === 'SUBJECT') {
       const subjects = await prisma.subject.findMany({
         where: q
           ? {
-              OR: [
-                { name: { contains: q, mode: 'insensitive' } },
-                { code: { contains: q, mode: 'insensitive' } },
-                { description: { contains: q, mode: 'insensitive' } },
-              ],
+              OR: containsAny(['name', 'code', 'description']),
             }
           : undefined,
-        take: 20,
+        take: 100,
       });
       for (const s of subjects) {
         results.push({
@@ -45,14 +82,13 @@ export async function GET(request: NextRequest) {
         where: q
           ? {
               OR: [
-                { title: { contains: q, mode: 'insensitive' } },
-                { description: { contains: q, mode: 'insensitive' } },
+                ...containsAny(['title', 'description']),
                 ...(numMatch ? [{ chapterNumber: parseInt(numMatch[0], 10) }] : []),
               ],
             }
           : undefined,
         include: { subject: true },
-        take: 25,
+        take: 100,
       });
       for (const c of chapters) {
         results.push({
@@ -72,10 +108,7 @@ export async function GET(request: NextRequest) {
       const topics = await prisma.topic.findMany({
         where: q
           ? {
-              OR: [
-                { title: { contains: q, mode: 'insensitive' } },
-                { description: { contains: q, mode: 'insensitive' } },
-              ],
+              OR: containsAny(['title', 'description']),
             }
           : undefined,
         include: { chapter: { include: { subject: true } } },
@@ -130,11 +163,11 @@ export async function GET(request: NextRequest) {
           AND: [
             q
               ? {
-                  OR: [
-                    { fileName: { contains: q, mode: 'insensitive' } },
-                    { studyNote: { title: { contains: q, mode: 'insensitive' } } },
-                    { topic: { title: { contains: q, mode: 'insensitive' } } },
-                  ],
+                  OR: searchTerms.flatMap((term) => [
+                    { fileName: { contains: term, mode: 'insensitive' as const } },
+                    { studyNote: { title: { contains: term, mode: 'insensitive' as const } } },
+                    { topic: { title: { contains: term, mode: 'insensitive' as const } } },
+                  ]),
                 }
               : {},
             typeFilter === 'PDF' ? { fileType: 'PDF' } : {},
@@ -144,7 +177,7 @@ export async function GET(request: NextRequest) {
           ],
         },
         include: { subject: true, chapter: true, topic: true, studyNote: true },
-        take: 30,
+        take: 100,
       });
       for (const f of files) {
         results.push({
@@ -164,7 +197,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (sort === 'alphabetical') {
+    if (q && sort === 'relevance') {
+      results.sort((a, b) => scoreSearchResult(q, b) - scoreSearchResult(q, a));
+      // Remove weak incidental matches while keeping partial multi-word matches useful.
+      for (let i = results.length - 1; i >= 0; i -= 1) {
+        if (scoreSearchResult(q, results[i]) <= 0) results.splice(i, 1);
+      }
+    } else if (sort === 'alphabetical') {
       results.sort((a, b) => a.title.localeCompare(b.title));
     } else if (sort === 'newest') {
       results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
