@@ -22,7 +22,6 @@ Set these server-side variables in Vercel → Project → Settings → Environme
 - `GOOGLE_DRIVE_CLIENT_SECRET`
 - `GOOGLE_DRIVE_REDIRECT_URI` (must exactly match the registered callback URL)
 - `GOOGLE_DRIVE_OAUTH_SETUP_SECRET` (a long random secret used only to protect the one-time setup URL)
-- `GOOGLE_DRIVE_FOLDER_ID`
 - `GOOGLE_DRIVE_REFRESH_TOKEN` (obtained in the next step)
 
 Never use a `NEXT_PUBLIC_` prefix for these values. Never commit the client secret or refresh token.
