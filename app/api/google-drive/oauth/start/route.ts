@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const url = oauth.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/drive'],
+    scope: ['https://www.googleapis.com/auth/drive.file'],
     state,
   });
   const response = NextResponse.redirect(url);
