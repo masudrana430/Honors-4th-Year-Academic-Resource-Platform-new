@@ -5,7 +5,7 @@
   "description": "Public Honors 4th Year Academic Resource Platform with Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL, Prisma, Google Drive API, Gemini AI Assistant, and Voice Search",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma db push && prisma generate && next build",
+    "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
