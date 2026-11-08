@@ -60,17 +60,19 @@ export async function ensureDriveFolderHierarchy(
 
   for (const folderName of pathSegments) {
     const escapedName: string = folderName.replace(/'/g, "\\'");
-    const listRes: { data: drive_v3.Schema$FileList } = await drive.files.list({
+    const listResponse = await drive.files.list({
       q: `'${currentParentId}' in parents and name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       spaces: 'drive',
     });
+    const files: drive_v3.Schema$File[] =
+      (listResponse.data as drive_v3.Schema$FileList).files ?? [];
 
-    const existingId: string | null | undefined = listRes.data.files?.[0]?.id;
+    const existingId: string | null | undefined = files[0]?.id;
     if (existingId) {
       currentParentId = existingId;
     } else {
-      const createRes: { data: drive_v3.Schema$File } = await drive.files.create({
+      const createResponse = await drive.files.create({
         requestBody: {
           name: folderName,
           mimeType: 'application/vnd.google-apps.folder',
@@ -78,7 +80,9 @@ export async function ensureDriveFolderHierarchy(
         },
         fields: 'id',
       });
-      const createdId: string | null | undefined = createRes.data.id;
+      const createdId: string | null | undefined =
+        (createResponse.data as drive_v3.Schema$File).id;
+
       if (!createdId) {
         throw new Error(`Failed to create Google Drive folder: ${folderName}`);
       }
