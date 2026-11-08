@@ -30,13 +30,10 @@ export function buildGoogleDriveUrls(driveFileId: string): {
   };
 }
 
-/**
- * Creates/locates folders under the user's My Drive folder configured by
- * GOOGLE_DRIVE_FOLDER_ID. Create this root folder manually once in My Drive.
- */
+/** Creates or locates the app's folder hierarchy in the OAuth owner's My Drive. */
 export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promise<string> {
   const drive = getGoogleDriveClient();
-  const rootSearch = await drive.files.list({
+  const rootSearch: { data: drive_v3.Schema$FileList } = await drive.files.list({
     q: "name = 'Honors_4th_Year' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false",
     fields: 'files(id, name)',
     spaces: 'drive',
@@ -52,7 +49,7 @@ export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promis
   if (!parentId) throw new Error('Could not create or locate the Honors_4th_Year folder in My Drive.');
   for (const folderName of pathSegments) {
     const escapedName = folderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const response = await drive.files.list({
+    const response: { data: drive_v3.Schema$FileList } = await drive.files.list({
       q: `'${parentId}' in parents and name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       spaces: 'drive',
