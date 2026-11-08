@@ -7,6 +7,7 @@ function normalizeSearchText(value: string): string {
     .normalize('NFKC')
     .replace(/[ড়ঢ়]/g, 'ড়')
     .replace(/য়/g, 'য়')
+    .replace(/পারিসংখ্যান/g, 'পরিসংখ্যান')
     .replace(/[।,;:!?()[\]{}"'’‘“”]/g, ' ')
     .replace(/[-_/]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
           ? {
               OR: [
                 ...containsAny(['title', 'description']),
+                ...searchTerms.map((term) => ({ subject: { name: { contains: term, mode: 'insensitive' as const } } })),
                 ...(numMatch ? [{ chapterNumber: parseInt(numMatch[0], 10) }] : []),
               ],
             }
@@ -167,6 +169,8 @@ export async function GET(request: NextRequest) {
                     { fileName: { contains: term, mode: 'insensitive' as const } },
                     { studyNote: { title: { contains: term, mode: 'insensitive' as const } } },
                     { topic: { title: { contains: term, mode: 'insensitive' as const } } },
+                    { subject: { name: { contains: term, mode: 'insensitive' as const } } },
+                    { chapter: { title: { contains: term, mode: 'insensitive' as const } } },
                   ]),
                 }
               : {},
