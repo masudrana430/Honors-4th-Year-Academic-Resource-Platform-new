@@ -25,6 +25,44 @@ export async function processAcademicAssistantQuery(
     return buildIdentityResponse(identityIntent, fallbackLanguage(trimmed));
   }
   const hasBanglaChars = /[\u0980-\u09FF]/.test(trimmed);
+  // Deterministic aliases for the chapter confirmed in the PHYS-405 live page.
+  // This bypasses Gemini keyword expansion so a chapter-opening request cannot
+  // accidentally return unrelated chapters from the same subject.
+  if (isElectromagneticWavesChapterRequest(trimmed)) {
+    const chapter = await prisma.chapter.findFirst({
+      where: {
+        chapterNumber: 4,
+        subject: { code: 'PHYS-405' },
+      },
+      include: { subject: true },
+    });
+
+    if (chapter) {
+      const language = fallbackLanguage(trimmed);
+      return {
+        answer: language === 'en'
+          ? 'Opening Chapter 04: Electromagnetic Waves.'
+          : language === 'mixed'
+            ? 'Chapter 04 Electromagnetic Waves open korchi.'
+            : 'চতুর্থ অধ্যায়: তড়িৎ চৌম্বক তরঙ্গ খুলে দিচ্ছি।',
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: chapter.subject.name,
+          chapterNumber: chapter.chapterNumber,
+          resourceFilter: 'INFO',
+        },
+        resources: [{
+          id: chapter.id,
+          type: 'CHAPTER',
+          title: `Chapter ${String(chapter.chapterNumber).padStart(2, '0')}: ${chapter.title}`,
+          contextLabel: chapter.subject.name,
+          href: `/chapters/${chapter.id}`,
+        }],
+        suggestions: [],
+      };
+    }
+  }
+
   const hasLatinChars = /[a-zA-Z]/.test(trimmed);
   const fallbackLang: 'en' | 'bn' | 'mixed' =
     hasBanglaChars && hasLatinChars ? 'mixed' : hasBanglaChars ? 'bn' : 'en';
@@ -220,6 +258,19 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
       'Find chapter-wise classes about electromagnetic theory',
     ],
   };
+}
+
+function isElectromagneticWavesChapterRequest(query: string): boolean {
+  const normalized = query.toLowerCase()
+    .normalize('NFC')
+    .replace(/[\\s\\p{P}\\p{S}]+/gu, '');
+
+  const hasElectric = normalized.includes('তড়িৎ') || normalized.includes('তড়িৎ');
+  const hasMagnetic = normalized.includes('চুম্বক') || normalized.includes('চৌম্বক') ||
+    normalized.includes('electromagnetic') || normalized.includes('electromagnet');
+  const hasWave = normalized.includes('তরঙ্গ') || normalized.includes('wave');
+
+  return hasElectric && hasMagnetic && hasWave;
 }
 
 function extractFallbackKeywords(query: string): string[] {
