@@ -77,3 +77,8 @@ This repository includes a ready-to-use `render.yaml` Blueprint:
 5. The server uploads the file into the matching Google Drive topic folder and creates the linked StudyNote and File records in PostgreSQL. The existing chapter page displays the file under that topic.
 
 The admin upload API is protected by the bearer token. The token is held in the page's memory only and is not saved to browser storage. If the token is missing or incorrect, the API returns 401.
+
+
+### Vercel environment setup
+
+For a Vercel deployment, open **Project → Settings → Environment Variables**, add `ADMIN_UPLOAD_TOKEN` with a long random value, and enable it for Production (and Preview if needed). Save the variable and redeploy the project so the server route can read it. Keep this value private; enter it only on `/admin/notes`.
