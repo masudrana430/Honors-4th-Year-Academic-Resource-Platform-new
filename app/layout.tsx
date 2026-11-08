@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BookOpen, Search, Layers, Sparkles } from 'lucide-react';
 import './globals.css';
 import { AcademicAIAssistant } from '@/components/ai/AcademicAIAssistant';
+import MobileStaggeredMenu from '@/components/navigation/MobileStaggeredMenu';
 
 export const metadata: Metadata = {
   title: {
@@ -21,37 +22,29 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-indigo-600">
-                <BookOpen className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="block text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-                  Honors 4th Year
-                </span>
-                <span className="block text-[11px] text-slate-500 dark:text-slate-400">
-                  Academic Resource Platform
-                </span>
-              </div>
-            </Link>
-            <nav className="flex items-center gap-2 sm:gap-5 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <Link href="/" className="hover:text-indigo-600 px-2 py-1">
-                Home
+        <header className="sticky top-0 z-40">
+          <MobileStaggeredMenu />
+          <div className="hidden border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 lg:block">
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+              <Link href="/" className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-indigo-600">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="block text-sm font-bold tracking-tight text-slate-900 dark:text-white">Honors 4th Year</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-slate-400">Academic Resource Platform</span>
+                </div>
               </Link>
-              <Link href="/subjects" className="inline-flex items-center gap-1 hover:text-indigo-600 px-2 py-1">
-                <Layers className="h-4 w-4" />
-                <span>Subjects</span>
-              </Link>
-              <Link
-                href="/search"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-700 dark:bg-slate-800 dark:text-slate-200"
-              >
-                <Search className="h-3.5 w-3.5" />
-                <span>Global Search</span>
-              </Link>
-            </nav>
+              <nav className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <Link href="/" className="hover:text-indigo-600 px-2 py-1">Home</Link>
+                <Link href="/subjects" className="inline-flex items-center gap-1 hover:text-indigo-600 px-2 py-1">
+                  <Layers className="h-4 w-4" /><span>Subjects</span>
+                </Link>
+                <Link href="/search" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-700 dark:bg-slate-800 dark:text-slate-200">
+                  <Search className="h-3.5 w-3.5" /><span>Global Search</span>
+                </Link>
+              </nav>
+            </div>
           </div>
         </header>
         <main className="flex-1">{children}</main>
