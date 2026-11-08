@@ -34,7 +34,6 @@ async function runSync() {
     for (const chapter of subject.chapters) {
       for (const topic of chapter.topics) {
         const segments = [
-          'Honors_4th_Year',
           `Subject_${subject.code || subject.slug}`,
           `Chapter_${String(chapter.chapterNumber).padStart(2, '0')}`,
           `Topic_${String(topic.topicNumber).padStart(2, '0')}`,
