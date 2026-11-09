@@ -51,7 +51,18 @@ export function AcademicAIAssistant() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [launcherOffset, setLauncherOffset] = useState({ x: 0, y: 0 });
-  const [lottieFailed, setLottieFailed] = useState(false);
+  const [robotDragOffset, setRobotDragOffset] = useState({ x: 0, y: 0 });
+  const [isRobotDragging, setIsRobotDragging] = useState(false);
+  const robotDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    offsetX: number;
+    offsetY: number;
+    moved: boolean;
+  } | null>(null);
+  const lottieFailedState = useState(false);
+  const [lottieFailed, setLottieFailed] = lottieFailedState;
   const robotContainerRef = useRef<HTMLDivElement | null>(null);
   const robotAnimationRef = useRef<LottiePlayer | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -497,55 +508,89 @@ export function AcademicAIAssistant() {
   };
 
   if (!isOpen) {
+    const handleRobotPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      robotDragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        offsetX: robotDragOffset.x,
+        offsetY: robotDragOffset.y,
+        moved: false,
+      };
+      setIsRobotDragging(true);
+    };
+
+    const handleRobotPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = robotDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+
+      const deltaX = event.clientX - drag.startX;
+      const deltaY = event.clientY - drag.startY;
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) drag.moved = true;
+
+      if (drag.moved) {
+        const maxLeft = -(window.innerWidth - 112);
+        const maxUp = -(window.innerHeight - 112);
+        setRobotDragOffset({
+          x: Math.max(maxLeft, Math.min(0, drag.offsetX + deltaX)),
+          y: Math.max(maxUp, Math.min(0, drag.offsetY + deltaY)),
+        });
+      }
+    };
+
+    const handleRobotPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = robotDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      setIsRobotDragging(false);
+    };
+
+    const handleRobotClick = () => {
+      if (robotDragRef.current?.moved) {
+        robotDragRef.current = null;
+        return;
+      }
+      robotDragRef.current = null;
+      setIsOpen(true);
+    };
+
     return (
       <div
         className="fixed bottom-4 right-7 z-[60] sm:bottom-6 sm:right-8"
         style={{
-          transform: `translate3d(${launcherOffset.x}px, ${launcherOffset.y}px, 0)`,
-          transition: 'transform 650ms cubic-bezier(0.22, 1, 0.36, 1)',
+          transform: `translate3d(${launcherOffset.x + robotDragOffset.x}px, ${launcherOffset.y + robotDragOffset.y}px, 0)`,
+          transition: isRobotDragging ? 'none' : 'transform 650ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-        <div className="ai-assistant-launcher-enter flex items-end gap-1.5 sm:gap-2">
-          <div className="flex flex-col items-end gap-2 pb-2">
-            <button
-              type="button"
-              onClick={startVoiceMode}
-              aria-label="Talk to Campus Assistant using voice"
-              className="inline-flex max-w-[190px] items-center gap-2 whitespace-nowrap rounded-full border border-emerald-300/70 bg-emerald-600 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg shadow-emerald-950/20 transition-all duration-200 hover:-translate-x-1 hover:bg-emerald-700 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 sm:px-3.5 sm:text-xs"
-            >
-              <Mic className="h-4 w-4 shrink-0" />
-              <span>Talk to Campus Assistant</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsOpen(true)}
-              aria-label="Open AI Academic Assistant chat"
-              className="inline-flex max-w-[190px] items-center gap-2 whitespace-nowrap rounded-full border border-indigo-300/70 bg-indigo-600 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg shadow-indigo-950/20 transition-all duration-200 hover:-translate-x-1 hover:bg-indigo-700 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 sm:px-3.5 sm:text-xs"
-            >
-              <Sparkles className="h-4 w-4 shrink-0" />
-              <span>AI Academic Assistant</span>
-            </button>
-          </div>
-
+        <div className="ai-assistant-launcher-enter">
           <button
             type="button"
-            onClick={() => setIsOpen(true)}
-            aria-label="Open Campus Assistant chat"
-            title="Open Campus Assistant"
-            className="ai-robot-bob group relative grid h-[82px] w-[82px] shrink-0 place-items-center rounded-full border border-white/80 bg-gradient-to-br from-white via-indigo-50 to-cyan-100 p-1 shadow-[0_12px_38px_rgba(37,99,235,0.28)] ring-1 ring-indigo-200/80 transition-transform duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24"
+            onClick={handleRobotClick}
+            onPointerDown={handleRobotPointerDown}
+            onPointerMove={handleRobotPointerMove}
+            onPointerUp={handleRobotPointerUp}
+            onPointerCancel={handleRobotPointerUp}
+            aria-label="Drag robot to move it, or tap to open Campus Assistant chat"
+            title="Drag to move • Tap to chat"
+            className={`ai-robot-bob group relative grid h-[82px] w-[82px] touch-none select-none place-items-center rounded-full border border-white/80 bg-gradient-to-br from-white via-indigo-50 to-cyan-100 p-1 shadow-[0_12px_38px_rgba(37,99,235,0.28)] ring-1 ring-indigo-200/80 transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24 ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
           >
             <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-indigo-400/20 to-cyan-300/20 blur-md" />
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`relative z-10 h-full w-full overflow-hidden rounded-full ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-hidden rounded-full ${lottieFailed ? 'hidden' : ''}`}
             />
-            {lottieFailed && <Bot aria-hidden="true" className="relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
-            <span className="absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
+            {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
+            <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
               Chat
             </span>
             <span className="pointer-events-none absolute -top-2 right-0 z-20 whitespace-nowrap rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-              Open assistant
+              Drag to move · Tap to chat
             </span>
           </button>
         </div>
