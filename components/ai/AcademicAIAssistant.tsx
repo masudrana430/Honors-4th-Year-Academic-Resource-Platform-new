@@ -58,20 +58,55 @@ export function AcademicAIAssistant() {
       onDone?.();
       return;
     }
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    // Chrome on Android can leave speech paused after an interrupted utterance.
+    synth.resume();
+
     const utterance = new SpeechSynthesisUtterance(text);
     const containsBangla = /[\u0980-\u09FF]/.test(text);
     const locale = voiceLanguage === 'bn-BD' ? 'bn-BD' : voiceLanguage === 'en-US' ? 'en-US' : containsBangla ? 'bn-BD' : 'en-US';
     utterance.lang = locale;
-    utterance.rate = 0.96;
-    const voices = window.speechSynthesis.getVoices();
+    utterance.rate = 0.92;
+    utterance.pitch = 1;
+    const voices = synth.getVoices();
+    const language = locale.slice(0, 2).toLowerCase();
     const selectedVoice = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(locale.slice(0, 2).toLowerCase()));
-    if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.onstart = () => { if (mountedRef.current) setIsSpeaking(true); };
-    utterance.onend = () => { if (mountedRef.current) setIsSpeaking(false); onDone?.(); };
-    utterance.onerror = () => { if (mountedRef.current) setIsSpeaking(false); onDone?.(); };
-    window.speechSynthesis.speak(utterance);
+      voices.find((v) => v.lang.toLowerCase().startsWith(language + '-')) ||
+      voices.find((v) => v.default) ||
+      voices[0];
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      // Keep the utterance locale aligned with the installed voice.
+      utterance.lang = selectedVoice.lang || locale;
+    }
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      if (mountedRef.current) setIsSpeaking(false);
+      onDone?.();
+    };
+    utterance.onstart = () => {
+      if (mountedRef.current) {
+        setIsSpeaking(true);
+        setVoiceStatus('Campus Assistant কথা বলছে...');
+      }
+    };
+    utterance.onend = finish;
+    utterance.onerror = (event) => {
+      if (mountedRef.current) {
+        setIsSpeaking(false);
+        setVoiceStatus('Voice playback সমস্যা: ' + (event.error || 'speech unavailable') + '. Chrome-এর Text-to-Speech voice চালু আছে কি না দেখুন।');
+      }
+      finish();
+    };
+    // Calling speak directly from the button interaction preserves Chrome's user activation.
+    synth.speak(utterance);
+    // Some Chrome builds need a resume after queueing the first utterance.
+    window.setTimeout(() => {
+      if (!completed && synth.paused) synth.resume();
+    }, 250);
   }, [voiceLanguage]);
 
   const startListening = useCallback(() => {
@@ -221,8 +256,8 @@ export function AcademicAIAssistant() {
       voiceLanguage === 'en-US'
         ? 'Assalamu Alaikum! I am Campus Assistant. I was created by Masud Rana. Which chapter do you need?'
         : voiceLanguage === 'mixed'
-          ? 'আসসালামুয়ালাইকুম! Ami Campus Assistant. Amake Masud Rana build korechen. Bolun, apnar kon chapter-ti proyojon?'
-          : 'আসসালামুয়ালাইকুম! আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন?',
+          ? 'আসসালামু আলাইকুম। আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন?'
+          : 'আসসালামু আলাইকুম। আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন?',
       () => {
         if (voiceModeRef.current) startListeningRef.current();
       }
