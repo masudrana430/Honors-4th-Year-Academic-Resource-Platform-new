@@ -48,6 +48,9 @@ const SUGGESTED_QUESTIONS = [
   'আণবিক পদার্থবিজ্ঞানের নোট দেখাও',
 ];
 
+const WELCOME_ANNOUNCEMENT =
+  'আসসালামু আলাইকুম! আমি Campus Assistant। আমাদের শিক্ষামূলক প্ল্যাটফর্মকে সমৃদ্ধ করতে অনুগ্রহ করে প্রতিটি অধ্যায়ের নোট আপলোড করে সহায়তা করুন। আপনার শেয়ার করা নোট অন্য শিক্ষার্থীদের পড়াশোনায় অনেক উপকার করবে। ধন্যবাদ।';
+
 export function AcademicAIAssistant() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -66,6 +69,7 @@ export function AcademicAIAssistant() {
   const [welcomeVisible, setWelcomeVisible] = useState(true);
   const [welcomePhase, setWelcomePhase] = useState<'entering' | 'speaking' | 'exiting'>('entering');
   const [welcomeLottieFailed, setWelcomeLottieFailed] = useState(false);
+  const [welcomeVoiceBlocked, setWelcomeVoiceBlocked] = useState(false);
   const welcomeRobotContainerRef = useRef<HTMLDivElement | null>(null);
   const welcomeAnimationRef = useRef<LottiePlayer | null>(null);
   const welcomeStartTimerRef = useRef<number | null>(null);
@@ -424,16 +428,25 @@ export function AcademicAIAssistant() {
       welcomeStartedRef.current = true;
       setWelcomePhase('speaking');
 
-      const announcement =
-        'আসসালামু আলাইকুম! আমি Campus Assistant। আমাদের শিক্ষামূলক প্ল্যাটফর্মকে সমৃদ্ধ করতে অনুগ্রহ করে প্রতিটি অধ্যায়ের নোট আপলোড করে সহায়তা করুন। আপনার শেয়ার করা নোট অন্য শিক্ষার্থীদের পড়াশোনায় অনেক উপকার করবে। ধন্যবাদ।';
+      welcomeSpeechWatchdogRef.current = window.setTimeout(() => {
+        // A stalled speech engine should not leave the welcome character on screen forever.
+        speechRequestIdRef.current += 1;
+        if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+        activeUtteranceRef.current = null;
+        setIsSpeaking(false);
+        setWelcomeVoiceBlocked(true);
+      }, 25000);
 
-      welcomeSpeechWatchdogRef.current = window.setTimeout(beginWelcomeExit, 25000);
       announcementSpeakRef.current?.(
-        announcement,
+        WELCOME_ANNOUNCEMENT,
         beginWelcomeExit,
         () => {
-          // If autoplay is blocked by the browser, leave the written reminder visible briefly.
-          welcomeFallbackTimerRef.current = window.setTimeout(beginWelcomeExit, 4500);
+          if (welcomeSpeechWatchdogRef.current !== null) {
+            window.clearTimeout(welcomeSpeechWatchdogRef.current);
+            welcomeSpeechWatchdogRef.current = null;
+          }
+          // Keep the reminder visible and provide a tap-to-play fallback when autoplay is denied.
+          setWelcomeVoiceBlocked(true);
         }
       );
     }, 900);
@@ -441,6 +454,29 @@ export function AcademicAIAssistant() {
     welcomeStartTimerRef.current = timer;
     return () => window.clearTimeout(timer);
   }, [beginWelcomeExit]);
+
+  const retryWelcomeAnnouncement = () => {
+    if (welcomeExitStartedRef.current) return;
+    setWelcomeVoiceBlocked(false);
+    welcomeSpeechWatchdogRef.current = window.setTimeout(() => {
+      speechRequestIdRef.current += 1;
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+      activeUtteranceRef.current = null;
+      setIsSpeaking(false);
+      setWelcomeVoiceBlocked(true);
+    }, 25000);
+    announcementSpeakRef.current?.(
+      WELCOME_ANNOUNCEMENT,
+      beginWelcomeExit,
+      () => {
+        if (welcomeSpeechWatchdogRef.current !== null) {
+          window.clearTimeout(welcomeSpeechWatchdogRef.current);
+          welcomeSpeechWatchdogRef.current = null;
+        }
+        setWelcomeVoiceBlocked(true);
+      }
+    );
+  };
 
   const stopWelcomeAnnouncement = () => {
     welcomeStartedRef.current = true;
@@ -736,8 +772,18 @@ export function AcademicAIAssistant() {
                 {welcomePhase === 'speaking' && <span className="ml-auto inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
               </div>
               <p className="text-[12px] leading-relaxed sm:text-sm">
-                আসসালামু আলাইকুম! আমি Campus Assistant। আমাদের শিক্ষামূলক প্ল্যাটফর্মকে সমৃদ্ধ করতে অনুগ্রহ করে প্রতিটি অধ্যায়ের নোট আপলোড করে সহায়তা করুন। আপনার শেয়ার করা নোট অন্য শিক্ষার্থীদের পড়াশোনায় অনেক উপকার করবে। ধন্যবাদ।
+                {WELCOME_ANNOUNCEMENT}
               </p>
+              {welcomeVoiceBlocked && (
+                <button
+                  type="button"
+                  onClick={retryWelcomeAnnouncement}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-300 sm:text-xs"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  ভয়েস শুনতে ট্যাপ করুন
+                </button>
+              )}
             </div>
           </div>
         </div>
