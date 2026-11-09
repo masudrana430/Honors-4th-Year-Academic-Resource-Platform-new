@@ -61,24 +61,40 @@ export function AcademicAIAssistant() {
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     const requestId = ++speechRequestIdRef.current;
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       setIsSpeaking(false);
-      setVoiceStatus('এই browser-এ built-in text-to-speech নেই। Chrome ব্যবহার করুন।');
+      setVoiceStatus('এই browser-এ speech synthesis সুবিধা নেই।');
       return;
     }
 
     const synth = window.speechSynthesis;
-    synth.cancel();
     activeUtteranceRef.current = null;
 
-    // Split long answers into short utterances: Android Chrome is more reliable this way.
+    // Android Chrome may report synthesis-failed if cancel() and speak() happen
+    // in the same task. Cancel only an actual queue, then let the engine reset.
+    const beginQueue = () => {
+      if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+      if (synth.speaking || synth.pending) {
+        synth.cancel();
+        window.setTimeout(() => {
+          if (mountedRef.current && requestId === speechRequestIdRef.current) {
+            synth.resume();
+            speakNext();
+          }
+        }, 180);
+      } else {
+        synth.resume();
+        speakNext();
+      }
+    };
+
     const sentences = text.match(/[^.!?。！？।]+[.!?。！？।]*/g) || [text];
     const chunks: string[] = [];
     for (const sentence of sentences) {
       let remaining = sentence.trim();
-      while (remaining.length > 220) {
-        let cut = remaining.lastIndexOf(' ', 220);
-        if (cut < 80) cut = 220;
+      while (remaining.length > 180) {
+        let cut = remaining.lastIndexOf(' ', 180);
+        if (cut < 60) cut = 180;
         chunks.push(remaining.slice(0, cut).trim());
         remaining = remaining.slice(cut).trim();
       }
@@ -99,11 +115,11 @@ export function AcademicAIAssistant() {
       const part = chunks[index++];
       const hasBangla = /[\u0980-\u09FF]/.test(part);
       const requestedLang = voiceLanguage === 'bn-BD' || (voiceLanguage === 'mixed' && hasBangla)
-        ? 'bn-BD'
-        : 'en-US';
+        ? 'bn'
+        : 'en';
       const voices = synth.getVoices();
       const matchingVoices = voices.filter((voice) =>
-        voice.lang.toLowerCase().startsWith(requestedLang.slice(0, 2))
+        voice.lang.toLowerCase().startsWith(requestedLang)
       );
       const preferredVoice = matchingVoices.find((voice) =>
         voiceGender === 'female'
@@ -111,16 +127,21 @@ export function AcademicAIAssistant() {
           : /male|man|david|alex|daniel/i.test(voice.name)
       ) || matchingVoices[0];
 
-      // Retry without forcing a locale if the device has no voice for that language.
       let fallbackAttempted = false;
       const speakAttempt = (fallback = false) => {
         if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
         const utterance = new SpeechSynthesisUtterance(part);
-        utterance.lang = fallback ? '' : (preferredVoice?.lang || requestedLang);
+        // Do not force bn-BD/en-US when that locale is not installed. An unset
+        // voice/locale lets Android select its own default engine voice.
+        if (!fallback && preferredVoice) {
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang;
+        } else if (!fallback && matchingVoices.length > 0) {
+          utterance.lang = matchingVoices[0].lang;
+        }
         utterance.rate = 0.96;
         utterance.pitch = voiceGender === 'female' ? 1.08 : 0.92;
         utterance.volume = 1;
-        if (!fallback && preferredVoice) utterance.voice = preferredVoice;
 
         utterance.onstart = () => {
           if (mountedRef.current && requestId === speechRequestIdRef.current) {
@@ -133,33 +154,37 @@ export function AcademicAIAssistant() {
         };
         utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
           if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
-          if (!fallbackAttempted && (event.error === 'language-unavailable' || event.error === 'voice-unavailable')) {
+          const canRetry = !fallbackAttempted && (
+            event.error === 'synthesis-failed' ||
+            event.error === 'language-unavailable' ||
+            event.error === 'voice-unavailable'
+          );
+          if (canRetry) {
             fallbackAttempted = true;
-            speakAttempt(true);
+            activeUtteranceRef.current = null;
+            synth.cancel();
+            window.setTimeout(() => speakAttempt(true), 220);
             return;
           }
           activeUtteranceRef.current = null;
           setIsSpeaking(false);
           const reason = event.error === 'synthesis-unavailable'
             ? 'এই browser-এ speech engine পাওয়া যাচ্ছে না।'
-            : event.error === 'language-unavailable' || event.error === 'voice-unavailable'
-              ? 'এই ডিভাইসে উপযুক্ত ভাষার voice পাওয়া যায়নি।'
-              : event.error === 'audio-hardware' || event.error === 'audio-busy'
-                ? 'ডিভাইসের audio output ব্যবহার করা যাচ্ছে না।'
-                : 'Voice service error: ' + event.error;
+            : event.error === 'audio-hardware' || event.error === 'audio-busy'
+              ? 'ডিভাইসের audio output ব্যবহার করা যাচ্ছে না।'
+              : 'Speech engine error: ' + event.error;
           setVoiceStatus(reason + ' আবার চেষ্টা করুন।');
         };
 
         activeUtteranceRef.current = utterance;
         synth.speak(utterance);
       };
+
       speakAttempt();
     };
 
-    setVoiceStatus('Device-এর free voice দিয়ে কথা তৈরি হচ্ছে...');
-    // Chrome Android can retain a paused queue after an interrupted utterance.
-    synth.resume();
-    speakNext();
+    setVoiceStatus('Free device voice চালু হচ্ছে...');
+    beginQueue();
   }, [voiceLanguage, voiceGender]);
 
   const startListening = useCallback(() => {
