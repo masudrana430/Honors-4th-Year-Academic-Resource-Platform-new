@@ -13,6 +13,7 @@ interface ChatMessage {
   payload?: AIChatResponsePayload;
 }
 type VoiceLanguage = 'bn-BD' | 'en-US' | 'mixed';
+type VoiceGender = 'female' | 'male';
 
 const SUGGESTED_QUESTIONS = [
   'Show me all fourth-year physics subjects.',
@@ -27,6 +28,7 @@ export function AcademicAIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>('mixed');
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>('female');
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -38,6 +40,9 @@ export function AcademicAIAssistant() {
   const isLoadingRef = useRef(false);
   const mountedRef = useRef(true);
   const startListeningRef = useRef<() => void>(() => undefined);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const speechRequestIdRef = useRef(0);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', sender: 'assistant', text: 'আসসালামুয়ালাইকুম! আমি Campus Assistant। আমাকে মাসুদ রানা তৈরি করেছেন। বলুন, আপনার কোন অধ্যায়টি প্রয়োজন? আপনি বাংলায়, English অথবা Banglish-এ কথা বলতে পারেন।' },
@@ -49,69 +54,96 @@ export function AcademicAIAssistant() {
       mountedRef.current = false;
       voiceModeRef.current = false;
       recognitionRef.current?.stop?.();
-      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+      speechRequestIdRef.current += 1;
+      try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
+      activeSourceRef.current = null;
+      void audioContextRef.current?.close().catch(() => undefined);
     };
   }, []);
 
+  const getOrCreateAudioContext = () => {
+    if (typeof window === 'undefined') throw new Error('Audio playback is not available in this browser.');
+    const AudioContextConstructor = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextConstructor) throw new Error('এই browser-এ audio playback support নেই। Chrome আপডেট করুন।');
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new AudioContextConstructor() as AudioContext;
+    }
+    return audioContextRef.current;
+  };
+
   const speak = useCallback((text: string, onDone?: () => void) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      onDone?.();
+    const requestId = ++speechRequestIdRef.current;
+    try {
+      activeSourceRef.current?.stop();
+    } catch {
+      // The previous source may already have finished.
+    }
+    activeSourceRef.current = null;
+
+    let audioContext: AudioContext;
+    let resumePromise: Promise<void>;
+    try {
+      audioContext = getOrCreateAudioContext();
+      // Resume synchronously from the user's tap to satisfy mobile Chrome autoplay policy.
+      resumePromise = audioContext.resume();
+    } catch (error) {
+      setIsSpeaking(false);
+      setVoiceStatus(error instanceof Error ? error.message : 'Audio চালু করা যায়নি।');
       return;
     }
-    const synth = window.speechSynthesis;
-    synth.cancel();
-    // Chrome on Android can leave speech paused after an interrupted utterance.
-    synth.resume();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    const containsBangla = /[\u0980-\u09FF]/.test(text);
-    const locale = voiceLanguage === 'bn-BD' ? 'bn-BD' : voiceLanguage === 'en-US' ? 'en-US' : containsBangla ? 'bn-BD' : 'en-US';
-    utterance.lang = locale;
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    const voices = synth.getVoices();
-    const language = locale.slice(0, 2).toLowerCase();
-    // Never assign an unrelated default (often English) voice to Bengali text.
-    // Keep the requested locale even when Chrome has not loaded a matching voice yet.
-    const matchingVoice = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(language + '-'));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    } else if (language === 'en') {
-      const fallbackVoice = voices.find((v) => v.default) || voices[0];
-      if (fallbackVoice) utterance.voice = fallbackVoice;
-    }
-    let completed = false;
-    const finish = () => {
-      if (completed) return;
-      completed = true;
-      if (mountedRef.current) setIsSpeaking(false);
-      onDone?.();
-    };
-    utterance.onstart = () => {
-      if (mountedRef.current) {
+    const scriptHasBangla = /[\\u0980-\\u09FF]/.test(text);
+    setVoiceStatus('Google Cloud-এর natural voice তৈরি হচ্ছে...');
+    void (async () => {
+      try {
+        await resumePromise;
+        const response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            language: voiceLanguage,
+            gender: voiceGender,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => null);
+          throw new Error(errorPayload?.message || errorPayload?.error || ('TTS request failed (' + response.status + ')'));
+        }
+
+        const audioData = await response.arrayBuffer();
+        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+
+        const audioBuffer = await audioContext.decodeAudioData(audioData);
+        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        activeSourceRef.current = source;
+        source.onended = () => {
+          if (requestId !== speechRequestIdRef.current) return;
+          activeSourceRef.current = null;
+          if (mountedRef.current) {
+            setIsSpeaking(false);
+            setVoiceStatus('শুনছি... আপনার কথা বলুন।');
+          }
+          onDone?.();
+        };
+
         setIsSpeaking(true);
         setVoiceStatus('Campus Assistant কথা বলছে...');
-      }
-    };
-    utterance.onend = finish;
-    utterance.onerror = (event) => {
-      // Do not treat a failed greeting as a completed greeting.
-      // Otherwise Chrome immediately opens the microphone without speaking.
-      completed = true;
-      if (mountedRef.current) {
+        source.start(0);
+      } catch (error) {
+        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
         setIsSpeaking(false);
-        setVoiceStatus('Greeting শোনা যায়নি (' + (event.error || 'speech unavailable') + ')। Chrome/Android-এর Text-to-Speech voice চালু করে আবার চেষ্টা করুন।');
+        setVoiceStatus('Voice চালানো যায়নি: ' + (error instanceof Error ? error.message : 'Google Cloud TTS error'));
+        // A failed greeting must never trigger the microphone.
       }
-      // Deliberately do not call onDone: listening starts only after onend.
-    };
-    // Calling speak directly from the button interaction preserves Chrome's user activation.
-    synth.speak(utterance);
-    // Some Chrome builds need a resume after queueing the first utterance.
-    window.setTimeout(() => {
-      if (!completed && synth.paused) synth.resume();
-    }, 250);
-  }, [voiceLanguage]);
+    })();
+  }, [voiceLanguage, voiceGender]);
+
 
   const startListening = useCallback(() => {
     if (!voiceModeRef.current || isLoadingRef.current) return;
@@ -172,7 +204,10 @@ export function AcademicAIAssistant() {
     setIsSpeaking(false);
     setVoiceStatus('Voice conversation বন্ধ করা হয়েছে।');
     recognitionRef.current?.stop?.();
-    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    speechRequestIdRef.current += 1;
+    try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
+    activeSourceRef.current = null;
+    void audioContextRef.current?.suspend().catch(() => undefined);
   }, []);
 
   const sendQuery = async (queryText: string, fromVoice = false) => {
@@ -207,9 +242,9 @@ export function AcademicAIAssistant() {
         setIsListening(false);
         setIsSpeaking(false);
         recognitionRef.current?.stop?.();
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-        }
+        speechRequestIdRef.current += 1;
+        try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
+        activeSourceRef.current = null;
         setIsOpen(false);
         setIsFullScreen(false);
         router.push(targetHref);
@@ -243,9 +278,9 @@ export function AcademicAIAssistant() {
     setIsListening(false);
     setIsSpeaking(false);
     recognitionRef.current?.stop?.();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    speechRequestIdRef.current += 1;
+    try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
+    activeSourceRef.current = null;
     setIsOpen(false);
     setIsFullScreen(false);
     router.push(href);
@@ -288,13 +323,17 @@ export function AcademicAIAssistant() {
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-900 px-4 py-3 text-white sm:rounded-t-2xl">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-indigo-400" />
-          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Gemini + PostgreSQL • Voice & Chat</p></div>
+          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Gemini + PostgreSQL • Google Cloud Chirp 3 HD</p></div>
         </div>
         <div className="flex items-center gap-1">
-          <select aria-label="Voice language" value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value as VoiceLanguage)} className="max-w-[118px] rounded bg-slate-800 px-2 py-1 text-[11px] text-white">
+          <select aria-label="Voice language" value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value as VoiceLanguage)} className="max-w-[108px] rounded bg-slate-800 px-2 py-1 text-[11px] text-white">
             <option value="mixed">বাংলা + English</option>
             <option value="bn-BD">বাংলা</option>
             <option value="en-US">English / Banglish</option>
+          </select>
+          <select aria-label="Voice gender" value={voiceGender} onChange={(e) => setVoiceGender(e.target.value as VoiceGender)} className="max-w-[82px] rounded bg-slate-800 px-1.5 py-1 text-[11px] text-white">
+            <option value="female">নারী</option>
+            <option value="male">পুরুষ</option>
           </select>
           <button type="button" onClick={() => setMessages([])} title="Clear chat" className="rounded p-1.5 text-slate-300 hover:bg-slate-800"><Trash2 className="h-4 w-4" /></button>
           <button type="button" onClick={() => setIsFullScreen((v) => !v)} title="Toggle full-screen" className="rounded p-1.5 text-slate-300 hover:bg-slate-800">{isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
