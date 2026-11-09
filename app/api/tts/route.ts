@@ -16,6 +16,10 @@ type VoiceConfig = {
   name: string;
 };
 
+// Reuse the OAuth client between warm serverless invocations to avoid an extra token exchange per sentence.
+let cachedTtsAuth: any = null;
+let cachedCredentialsJson: string | null = null;
+
 function selectVoice(text: string, language: 'bn-BD' | 'en-US' | 'mixed', gender: 'female' | 'male'): VoiceConfig {
   const hasBanglaScript = /[\u0980-\u09FF]/.test(text);
   const banglishWords = /\b(ami|amra|apni|tumi|tomar|amar|amake|apnake|kemon|keno|kothay|ki|korbo|korte|chai|lagbe|ache|nei|hobe|dekhao|bolo|bolun|dorkar|ekhon|ekhane|okhane|bhalo|valo|dhonnobad)\b/i;
@@ -91,11 +95,14 @@ export async function POST(request: NextRequest) {
       }, { status: 503 });
     }
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: credentials as any,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
-    const accessToken = await auth.getAccessToken();
+    if (!cachedTtsAuth || cachedCredentialsJson !== serviceAccountJson) {
+      cachedTtsAuth = new google.auth.GoogleAuth({
+        credentials: credentials as any,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+      cachedCredentialsJson = serviceAccountJson;
+    }
+    const accessToken = await cachedTtsAuth.getAccessToken();
     if (!accessToken) {
       return NextResponse.json({
         error: 'TTS_AUTH_FAILED',
