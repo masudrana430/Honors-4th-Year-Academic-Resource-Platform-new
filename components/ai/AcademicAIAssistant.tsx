@@ -40,8 +40,7 @@ export function AcademicAIAssistant() {
   const isLoadingRef = useRef(false);
   const mountedRef = useRef(true);
   const startListeningRef = useRef<() => void>(() => undefined);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechRequestIdRef = useRef(0);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -55,94 +54,93 @@ export function AcademicAIAssistant() {
       voiceModeRef.current = false;
       recognitionRef.current?.stop?.();
       speechRequestIdRef.current += 1;
-      try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
-      activeSourceRef.current = null;
-      void audioContextRef.current?.close().catch(() => undefined);
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+      activeUtteranceRef.current = null;
     };
-  }, []);
-
-  const getOrCreateAudioContext = useCallback(() => {
-    if (typeof window === 'undefined') throw new Error('Audio playback is not available in this browser.');
-    const AudioContextConstructor = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextConstructor) throw new Error('এই browser-এ audio playback support নেই। Chrome আপডেট করুন।');
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new AudioContextConstructor() as AudioContext;
-    }
-    return audioContextRef.current;
   }, []);
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     const requestId = ++speechRequestIdRef.current;
-    try {
-      activeSourceRef.current?.stop();
-    } catch {
-      // The previous source may already have finished.
-    }
-    activeSourceRef.current = null;
-
-    let audioContext: AudioContext;
-    let resumePromise: Promise<void>;
-    try {
-      audioContext = getOrCreateAudioContext();
-      // Resume synchronously from the user's tap to satisfy mobile Chrome autoplay policy.
-      resumePromise = audioContext.resume();
-    } catch (error) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       setIsSpeaking(false);
-      setVoiceStatus(error instanceof Error ? error.message : 'Audio চালু করা যায়নি।');
+      setVoiceStatus('এই browser-এ built-in text-to-speech নেই। Chrome ব্যবহার করুন।');
       return;
     }
 
-    setVoiceStatus('Google Cloud-এর natural voice তৈরি হচ্ছে...');
-    void (async () => {
-      try {
-        await resumePromise;
-        const response = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text,
-            language: voiceLanguage,
-            gender: voiceGender,
-          }),
-        });
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    activeUtteranceRef.current = null;
 
-        if (!response.ok) {
-          const errorPayload = await response.json().catch(() => null);
-          throw new Error(errorPayload?.message || errorPayload?.error || ('TTS request failed (' + response.status + ')'));
-        }
-
-        const audioData = await response.arrayBuffer();
-        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
-
-        const audioBuffer = await audioContext.decodeAudioData(audioData);
-        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
-
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        activeSourceRef.current = source;
-        source.onended = () => {
-          if (requestId !== speechRequestIdRef.current) return;
-          activeSourceRef.current = null;
-          if (mountedRef.current) {
-            setIsSpeaking(false);
-            setVoiceStatus('শুনছি... আপনার কথা বলুন।');
-          }
-          onDone?.();
-        };
-
-        setIsSpeaking(true);
-        setVoiceStatus('Campus Assistant কথা বলছে...');
-        source.start(0);
-      } catch (error) {
-        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
-        setIsSpeaking(false);
-        setVoiceStatus('Voice চালানো যায়নি: ' + (error instanceof Error ? error.message : 'Google Cloud TTS error'));
-        // A failed greeting must never trigger the microphone.
+    // Split long answers into short utterances: Android Chrome is more reliable this way.
+    const sentences = text.match(/[^.!?。！？।]+[.!?。！？।]*/g) || [text];
+    const chunks: string[] = [];
+    for (const sentence of sentences) {
+      let remaining = sentence.trim();
+      while (remaining.length > 220) {
+        let cut = remaining.lastIndexOf(' ', 220);
+        if (cut < 80) cut = 220;
+        chunks.push(remaining.slice(0, cut).trim());
+        remaining = remaining.slice(cut).trim();
       }
-    })();
-  }, [voiceLanguage, voiceGender, getOrCreateAudioContext]);
+      if (remaining) chunks.push(remaining);
+    }
 
+    let index = 0;
+    const speakNext = () => {
+      if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+      if (index >= chunks.length) {
+        activeUtteranceRef.current = null;
+        setIsSpeaking(false);
+        setVoiceStatus('শুনছি... আপনার কথা বলুন।');
+        onDone?.();
+        return;
+      }
+
+      const part = chunks[index++];
+      const utterance = new SpeechSynthesisUtterance(part);
+      const hasBangla = /[\\u0980-\\u09FF]/.test(part);
+      const lang = voiceLanguage === 'bn-BD' || (voiceLanguage === 'mixed' && hasBangla)
+        ? 'bn-BD'
+        : 'en-US';
+      utterance.lang = lang;
+      utterance.rate = 0.96;
+      utterance.pitch = voiceGender === 'female' ? 1.08 : 0.92;
+      utterance.volume = 1;
+
+      const voices = synth.getVoices();
+      const matchingVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith(lang.toLowerCase().slice(0, 2)));
+      const preferredVoice = matchingVoices.find((voice) =>
+        voiceGender === 'female'
+          ? /female|woman|zira|samantha|google.*(বাংলা|bangla|bengali)|female/i.test(voice.name)
+          : /male|man|david|alex|daniel/i.test(voice.name)
+      ) || matchingVoices[0];
+      if (preferredVoice) utterance.voice = preferredVoice;
+
+      utterance.onstart = () => {
+        if (mountedRef.current && requestId === speechRequestIdRef.current) {
+          setIsSpeaking(true);
+          setVoiceStatus('Campus Assistant কথা বলছে...');
+        }
+      };
+      utterance.onend = () => {
+        if (requestId === speechRequestIdRef.current) speakNext();
+      };
+      utterance.onerror = (event) => {
+        if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+        activeUtteranceRef.current = null;
+        setIsSpeaking(false);
+        setVoiceStatus('Device-এর voice চালানো যায়নি (' + event.error + ')। Android Settings → Text-to-speech output-এ voice data install আছে কি না দেখুন।');
+      };
+
+      activeUtteranceRef.current = utterance;
+      synth.speak(utterance);
+    };
+
+    setVoiceStatus('Device-এর free voice দিয়ে কথা তৈরি হচ্ছে...');
+    // Chrome Android can retain a paused queue after an interrupted utterance.
+    synth.resume();
+    speakNext();
+  }, [voiceLanguage, voiceGender]);
 
   const startListening = useCallback(() => {
     if (!voiceModeRef.current || isLoadingRef.current) return;
@@ -204,9 +202,8 @@ export function AcademicAIAssistant() {
     setVoiceStatus('Voice conversation বন্ধ করা হয়েছে।');
     recognitionRef.current?.stop?.();
     speechRequestIdRef.current += 1;
-    try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
-    activeSourceRef.current = null;
-    void audioContextRef.current?.suspend().catch(() => undefined);
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    activeUtteranceRef.current = null;
   }, []);
 
   const sendQuery = async (queryText: string, fromVoice = false) => {
@@ -242,8 +239,8 @@ export function AcademicAIAssistant() {
         setIsSpeaking(false);
         recognitionRef.current?.stop?.();
         speechRequestIdRef.current += 1;
-        try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
-        activeSourceRef.current = null;
+        if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+        activeUtteranceRef.current = null;
         setIsOpen(false);
         setIsFullScreen(false);
         router.push(targetHref);
@@ -278,8 +275,8 @@ export function AcademicAIAssistant() {
     setIsSpeaking(false);
     recognitionRef.current?.stop?.();
     speechRequestIdRef.current += 1;
-    try { activeSourceRef.current?.stop(); } catch { /* already stopped */ }
-    activeSourceRef.current = null;
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    activeUtteranceRef.current = null;
     setIsOpen(false);
     setIsFullScreen(false);
     router.push(href);
@@ -322,7 +319,7 @@ export function AcademicAIAssistant() {
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-900 px-4 py-3 text-white sm:rounded-t-2xl">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-indigo-400" />
-          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Gemini + PostgreSQL • Google Cloud Chirp 3 HD</p></div>
+          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Gemini + PostgreSQL • Free device voice</p></div>
         </div>
         <div className="flex items-center gap-1">
           <select aria-label="Voice language" value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value as VoiceLanguage)} className="max-w-[108px] rounded bg-slate-800 px-2 py-1 text-[11px] text-white">
