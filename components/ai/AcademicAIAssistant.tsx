@@ -61,7 +61,7 @@ export function AcademicAIAssistant() {
     };
   }, []);
 
-  const getOrCreateAudioContext = () => {
+  const getOrCreateAudioContext = useCallback(() => {
     if (typeof window === 'undefined') throw new Error('Audio playback is not available in this browser.');
     const AudioContextConstructor = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextConstructor) throw new Error('এই browser-এ audio playback support নেই। Chrome আপডেট করুন।');
@@ -69,7 +69,7 @@ export function AcademicAIAssistant() {
       audioContextRef.current = new AudioContextConstructor() as AudioContext;
     }
     return audioContextRef.current;
-  };
+  }, []);
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     const requestId = ++speechRequestIdRef.current;
@@ -92,7 +92,6 @@ export function AcademicAIAssistant() {
       return;
     }
 
-    const scriptHasBangla = /[\\u0980-\\u09FF]/.test(text);
     setVoiceStatus('Google Cloud-এর natural voice তৈরি হচ্ছে...');
     void (async () => {
       try {
@@ -142,7 +141,7 @@ export function AcademicAIAssistant() {
         // A failed greeting must never trigger the microphone.
       }
     })();
-  }, [voiceLanguage, voiceGender]);
+  }, [voiceLanguage, voiceGender, getOrCreateAudioContext]);
 
 
   const startListening = useCallback(() => {
