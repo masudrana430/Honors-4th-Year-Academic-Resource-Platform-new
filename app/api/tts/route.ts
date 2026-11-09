@@ -17,8 +17,8 @@ type VoiceConfig = {
 };
 
 function selectVoice(text: string, language: 'bn-BD' | 'en-US' | 'mixed', gender: 'female' | 'male'): VoiceConfig {
-  const hasBanglaScript = /[\\u0980-\\u09FF]/.test(text);
-  const banglishWords = /\\b(ami|amra|apni|tumi|tomar|amar|amake|apnake|kemon|keno|kothay|ki|korbo|korte|chai|lagbe|ache|nei|hobe|dekhao|bolo|bolun|dorkar|ekhon|ekhane|okhane|bhalo|valo|dhonnobad)\\b/i;
+  const hasBanglaScript = /[\u0980-\u09FF]/.test(text);
+  const banglishWords = /\b(ami|amra|apni|tumi|tomar|amar|amake|apnake|kemon|keno|kothay|ki|korbo|korte|chai|lagbe|ache|nei|hobe|dekhao|bolo|bolun|dorkar|ekhon|ekhane|okhane|bhalo|valo|dhonnobad)\b/i;
   const isBanglish = !hasBanglaScript && banglishWords.test(text);
 
   if (language === 'bn-BD' || (language === 'mixed' && hasBanglaScript)) {
