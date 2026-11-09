@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const requestSchema = z.object({
-  text: z.string().trim().min(1).max(1800),
+  text: z.string().trim().min(1).max(1500),
   language: z.enum(['bn-BD', 'en-US', 'mixed']).default('mixed'),
   gender: z.enum(['female', 'male']).default('female'),
 });
@@ -55,7 +55,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'INVALID_TTS_REQUEST', message: 'Text must be between 1 and 1800 characters.' }, { status: 400 });
+      return NextResponse.json({ error: 'INVALID_TTS_REQUEST', message: 'Text must be between 1 and 1500 characters.' }, { status: 400 });
+    }
+
+
+    if (Buffer.byteLength(parsed.data.text, 'utf8') > 4500) {
+      return NextResponse.json({
+        error: 'TTS_TEXT_TOO_LONG',
+        message: 'Voice-এর জন্য text অনেক বড়। অনুগ্রহ করে সংক্ষিপ্ত করে আবার চেষ্টা করুন।',
+      }, { status: 400 });
     }
 
     const serviceAccountJson = process.env.GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON;
@@ -115,7 +123,7 @@ export async function POST(request: NextRequest) {
     if (!googleResponse.ok) {
       console.error('Google Cloud TTS returned HTTP status:', googleResponse.status);
       const message = googleResponse.status === 403
-        ? 'Google Cloud TTS request প্রত্যাখ্যান করেছে। Text-to-Speech API enable, billing এবং service-account IAM role যাচাই করুন।'
+        ? 'Google Cloud TTS request প্রত্যাখ্যান করেছে। API enable, billing এবং service-account project access যাচাই করুন।'
         : 'Google Cloud TTS থেকে voice তৈরি করা যায়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।';
       return NextResponse.json({
         error: 'TTS_PROVIDER_ERROR',
