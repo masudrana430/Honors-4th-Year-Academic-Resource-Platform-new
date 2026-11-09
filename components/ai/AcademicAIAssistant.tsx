@@ -101,13 +101,17 @@ export function AcademicAIAssistant() {
 
         const encoded = (await response.text()).trim();
         const binary = window.atob(encoded);
-        const compressed = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+        const compressedBuffer = new ArrayBuffer(binary.length);
+        const compressed = new Uint8Array(compressedBuffer);
+        for (let index = 0; index < binary.length; index += 1) {
+          compressed[index] = binary.charCodeAt(index);
+        }
 
         if (typeof DecompressionStream === 'undefined') {
           throw new Error('This browser does not support compressed animation assets.');
         }
 
-        const decompressed = new Blob([compressed])
+        const decompressed = new Blob([compressedBuffer])
           .stream()
           .pipeThrough(new DecompressionStream('gzip'));
         const animationData = await new Response(decompressed).json();
@@ -130,10 +134,16 @@ export function AcademicAIAssistant() {
       }
     };
 
+    let script: HTMLScriptElement | null = null;
     const handleScriptReady = () => {
+      if (script) {
+        script.dataset.loaded = 'true';
+        delete script.dataset.failed;
+      }
       void loadRobotAnimation();
     };
     const handleScriptError = () => {
+      if (script) script.dataset.failed = 'true';
       if (!cancelled) setLottieFailed(true);
     };
 
@@ -142,22 +152,30 @@ export function AcademicAIAssistant() {
     if (window.lottie) {
       handleScriptReady();
     } else {
-      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      const shouldAppend = !script;
+
       if (!script) {
         script = document.createElement('script');
         script.id = scriptId;
         script.src = scriptUrl;
         script.async = true;
-        document.head.appendChild(script);
+        script.crossOrigin = 'anonymous';
       }
 
-      script.addEventListener('load', handleScriptReady);
-      script.addEventListener('error', handleScriptError);
+      if (script.dataset.failed === 'true') {
+        handleScriptError();
+      } else if (script.dataset.loaded === 'true') {
+        handleScriptReady();
+      } else {
+        script.addEventListener('load', handleScriptReady);
+        script.addEventListener('error', handleScriptError);
+        if (shouldAppend) document.head.appendChild(script);
+      }
     }
 
     return () => {
       cancelled = true;
-      const script = document.getElementById(scriptId);
       script?.removeEventListener('load', handleScriptReady);
       script?.removeEventListener('error', handleScriptError);
       robotAnimationRef.current?.destroy();
@@ -180,8 +198,8 @@ export function AcademicAIAssistant() {
 
         lastTriggeredScrollY = currentScrollY;
         setLauncherOffset({
-          x: Math.round((Math.random() - 0.5) * 72),
-          y: Math.round((Math.random() - 0.5) * 52),
+          x: Math.round((Math.random() - 0.5) * 56),
+          y: Math.round((Math.random() - 0.5) * 28),
         });
       });
     };
@@ -481,7 +499,7 @@ export function AcademicAIAssistant() {
   if (!isOpen) {
     return (
       <div
-        className="fixed bottom-3 right-3 z-[60] sm:bottom-6 sm:right-6"
+        className="fixed bottom-4 right-7 z-[60] sm:bottom-6 sm:right-8"
         style={{
           transform: `translate3d(${launcherOffset.x}px, ${launcherOffset.y}px, 0)`,
           transition: 'transform 650ms cubic-bezier(0.22, 1, 0.36, 1)',
