@@ -98,7 +98,7 @@ export function AcademicAIAssistant() {
 
       const part = chunks[index++];
       const utterance = new SpeechSynthesisUtterance(part);
-      const hasBangla = /[\\u0980-\\u09FF]/.test(part);
+      const hasBangla = /[\u0980-\u09FF]/.test(part);
       const lang = voiceLanguage === 'bn-BD' || (voiceLanguage === 'mixed' && hasBangla)
         ? 'bn-BD'
         : 'en-US';
@@ -129,7 +129,7 @@ export function AcademicAIAssistant() {
         if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
         activeUtteranceRef.current = null;
         setIsSpeaking(false);
-        setVoiceStatus('Device-এর voice চালানো যায়নি (' + event.error + ')। Android Settings → Text-to-speech output-এ voice data install আছে কি না দেখুন।');
+        setVoiceStatus('এই ডিভাইসের voice service সাড়া দিচ্ছে না। আবার চেষ্টা করুন।');
       };
 
       activeUtteranceRef.current = utterance;
