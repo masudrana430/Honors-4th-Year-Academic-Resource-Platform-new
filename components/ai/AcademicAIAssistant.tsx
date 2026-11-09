@@ -15,6 +15,30 @@ interface ChatMessage {
 type VoiceLanguage = 'bn-BD' | 'en-US' | 'mixed';
 type VoiceGender = 'female' | 'male';
 
+type LottiePlayer = {
+  destroy: () => void;
+};
+
+type LottieWeb = {
+  loadAnimation: (options: {
+    container: Element;
+    renderer: 'svg';
+    loop: boolean;
+    autoplay: boolean;
+    animationData: any;
+    rendererSettings?: {
+      preserveAspectRatio?: string;
+      progressiveLoad?: boolean;
+    };
+  }) => LottiePlayer;
+};
+
+declare global {
+  interface Window {
+    lottie?: LottieWeb;
+  }
+}
+
 const SUGGESTED_QUESTIONS = [
   'Show me all fourth-year physics subjects.',
   'Find the third chapter of Atomic and Molecular Physics.',
@@ -26,6 +50,10 @@ const SUGGESTED_QUESTIONS = [
 export function AcademicAIAssistant() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [launcherOffset, setLauncherOffset] = useState({ x: 0, y: 0 });
+  const [lottieFailed, setLottieFailed] = useState(false);
+  const robotContainerRef = useRef<HTMLDivElement | null>(null);
+  const robotAnimationRef = useRef<LottiePlayer | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>('mixed');
   const [voiceGender, setVoiceGender] = useState<VoiceGender>('female');
@@ -58,6 +86,112 @@ export function AcademicAIAssistant() {
       activeUtteranceRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    let cancelled = false;
+    const scriptId = 'ai-assistant-lottie-web';
+    const scriptUrl = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js';
+
+    const loadRobotAnimation = async () => {
+      try {
+        const response = await fetch('/animations/ai-robot.json.gz.b64', { cache: 'force-cache' });
+        if (!response.ok) throw new Error('Unable to load the robot animation asset.');
+
+        const encoded = (await response.text()).trim();
+        const binary = window.atob(encoded);
+        const compressed = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+
+        if (typeof DecompressionStream === 'undefined') {
+          throw new Error('This browser does not support compressed animation assets.');
+        }
+
+        const decompressed = new Blob([compressed])
+          .stream()
+          .pipeThrough(new DecompressionStream('gzip'));
+        const animationData = await new Response(decompressed).json();
+
+        if (cancelled || !robotContainerRef.current || !window.lottie) return;
+
+        robotAnimationRef.current = window.lottie.loadAnimation({
+          container: robotContainerRef.current,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          animationData,
+          rendererSettings: {
+            preserveAspectRatio: 'xMidYMid meet',
+            progressiveLoad: true,
+          },
+        });
+      } catch {
+        if (!cancelled) setLottieFailed(true);
+      }
+    };
+
+    const handleScriptReady = () => {
+      void loadRobotAnimation();
+    };
+    const handleScriptError = () => {
+      if (!cancelled) setLottieFailed(true);
+    };
+
+    setLottieFailed(false);
+
+    if (window.lottie) {
+      handleScriptReady();
+    } else {
+      let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = scriptUrl;
+        script.async = true;
+        document.head.appendChild(script);
+      }
+
+      script.addEventListener('load', handleScriptReady);
+      script.addEventListener('error', handleScriptError);
+    }
+
+    return () => {
+      cancelled = true;
+      const script = document.getElementById(scriptId);
+      script?.removeEventListener('load', handleScriptReady);
+      script?.removeEventListener('error', handleScriptError);
+      robotAnimationRef.current?.destroy();
+      robotAnimationRef.current = null;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let lastTriggeredScrollY = window.scrollY;
+    let animationFrame = 0;
+
+    const handleScroll = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        const currentScrollY = window.scrollY;
+        if (Math.abs(currentScrollY - lastTriggeredScrollY) < 100) return;
+
+        lastTriggeredScrollY = currentScrollY;
+        setLauncherOffset({
+          x: Math.round((Math.random() - 0.5) * 72),
+          y: Math.round((Math.random() - 0.5) * 52),
+        });
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [isOpen]);
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     const requestId = ++speechRequestIdRef.current;
@@ -346,19 +480,63 @@ export function AcademicAIAssistant() {
 
   if (!isOpen) {
     return (
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
-        <button type="button" onClick={startVoiceMode} className="flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-emerald-700">
-          <Mic className="h-4 w-4" /> Talk to Campus Assistant
-        </button>
-        <button type="button" onClick={() => setIsOpen(true)} className="flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-indigo-700">
-          <Sparkles className="h-4 w-4" /><span>AI Academic Assistant</span>
-        </button>
+      <div
+        className="fixed bottom-3 right-3 z-[60] sm:bottom-6 sm:right-6"
+        style={{
+          transform: `translate3d(${launcherOffset.x}px, ${launcherOffset.y}px, 0)`,
+          transition: 'transform 650ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+      >
+        <div className="ai-assistant-launcher-enter flex items-end gap-1.5 sm:gap-2">
+          <div className="flex flex-col items-end gap-2 pb-2">
+            <button
+              type="button"
+              onClick={startVoiceMode}
+              aria-label="Talk to Campus Assistant using voice"
+              className="inline-flex max-w-[190px] items-center gap-2 whitespace-nowrap rounded-full border border-emerald-300/70 bg-emerald-600 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg shadow-emerald-950/20 transition-all duration-200 hover:-translate-x-1 hover:bg-emerald-700 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 sm:px-3.5 sm:text-xs"
+            >
+              <Mic className="h-4 w-4 shrink-0" />
+              <span>Talk to Campus Assistant</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpen(true)}
+              aria-label="Open AI Academic Assistant chat"
+              className="inline-flex max-w-[190px] items-center gap-2 whitespace-nowrap rounded-full border border-indigo-300/70 bg-indigo-600 px-3 py-2.5 text-[11px] font-semibold text-white shadow-lg shadow-indigo-950/20 transition-all duration-200 hover:-translate-x-1 hover:bg-indigo-700 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 sm:px-3.5 sm:text-xs"
+            >
+              <Sparkles className="h-4 w-4 shrink-0" />
+              <span>AI Academic Assistant</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-label="Open Campus Assistant chat"
+            title="Open Campus Assistant"
+            className="ai-robot-bob group relative grid h-[82px] w-[82px] shrink-0 place-items-center rounded-full border border-white/80 bg-gradient-to-br from-white via-indigo-50 to-cyan-100 p-1 shadow-[0_12px_38px_rgba(37,99,235,0.28)] ring-1 ring-indigo-200/80 transition-transform duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24"
+          >
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-indigo-400/20 to-cyan-300/20 blur-md" />
+            <div
+              ref={robotContainerRef}
+              aria-hidden="true"
+              className={`relative z-10 h-full w-full overflow-hidden rounded-full ${lottieFailed ? 'hidden' : ''}`}
+            />
+            {lottieFailed && <Bot aria-hidden="true" className="relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
+            <span className="absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
+              Chat
+            </span>
+            <span className="pointer-events-none absolute -top-2 right-0 z-20 whitespace-nowrap rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+              Open assistant
+            </span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={'fixed z-50 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl transition-all ' + (
+    <div className={'ai-assistant-panel-enter fixed z-[70] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl transition-all ' + (
       isFullScreen ? 'inset-0 rounded-none' : 'bottom-0 right-0 left-0 h-[88vh] sm:bottom-5 sm:right-5 sm:left-auto sm:h-[680px] sm:w-[440px] sm:rounded-2xl'
     )}>
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-900 px-4 py-3 text-white sm:rounded-t-2xl">
@@ -378,7 +556,7 @@ export function AcademicAIAssistant() {
           </select>
           <button type="button" onClick={() => setMessages([])} title="Clear chat" className="rounded p-1.5 text-slate-300 hover:bg-slate-800"><Trash2 className="h-4 w-4" /></button>
           <button type="button" onClick={() => setIsFullScreen((v) => !v)} title="Toggle full-screen" className="rounded p-1.5 text-slate-300 hover:bg-slate-800">{isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
-          <button type="button" onClick={() => { stopVoiceMode(); setIsOpen(false); }} title="Close AI Assistant" className="rounded p-1.5 text-slate-300 hover:bg-slate-800"><X className="h-4 w-4" /></button>
+          <button type="button" onClick={() => { stopVoiceMode(); setIsOpen(false); setIsFullScreen(false); }} title="Close AI Assistant" className="rounded p-1.5 text-slate-300 hover:bg-slate-800"><X className="h-4 w-4" /></button>
         </div>
       </div>
 
