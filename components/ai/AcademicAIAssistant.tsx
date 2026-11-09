@@ -96,11 +96,14 @@ export function AcademicAIAssistant() {
     };
     utterance.onend = finish;
     utterance.onerror = (event) => {
+      // Do not treat a failed greeting as a completed greeting.
+      // Otherwise Chrome immediately opens the microphone without speaking.
+      completed = true;
       if (mountedRef.current) {
         setIsSpeaking(false);
-        setVoiceStatus('Voice playback সমস্যা: ' + (event.error || 'speech unavailable') + '. Chrome-এর Text-to-Speech voice চালু আছে কি না দেখুন।');
+        setVoiceStatus('Greeting শোনা যায়নি (' + (event.error || 'speech unavailable') + ')। Chrome/Android-এর Text-to-Speech voice চালু করে আবার চেষ্টা করুন।');
       }
-      finish();
+      // Deliberately do not call onDone: listening starts only after onend.
     };
     // Calling speak directly from the button interaction preserves Chrome's user activation.
     synth.speak(utterance);
