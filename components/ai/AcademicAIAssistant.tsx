@@ -71,14 +71,15 @@ export function AcademicAIAssistant() {
     utterance.pitch = 1;
     const voices = synth.getVoices();
     const language = locale.slice(0, 2).toLowerCase();
-    const selectedVoice = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(language + '-')) ||
-      voices.find((v) => v.default) ||
-      voices[0];
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      // Keep the utterance locale aligned with the installed voice.
-      utterance.lang = selectedVoice.lang || locale;
+    // Never assign an unrelated default (often English) voice to Bengali text.
+    // Keep the requested locale even when Chrome has not loaded a matching voice yet.
+    const matchingVoice = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith(language + '-'));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    } else if (language === 'en') {
+      const fallbackVoice = voices.find((v) => v.default) || voices[0];
+      if (fallbackVoice) utterance.voice = fallbackVoice;
     }
     let completed = false;
     const finish = () => {
