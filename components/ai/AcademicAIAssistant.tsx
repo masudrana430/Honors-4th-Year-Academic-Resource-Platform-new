@@ -62,6 +62,18 @@ export function AcademicAIAssistant() {
     moved: boolean;
   } | null>(null);
   const [lottieFailed, setLottieFailed] = useState(false);
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
+  const [welcomePhase, setWelcomePhase] = useState<'entering' | 'speaking' | 'exiting'>('entering');
+  const [welcomeLottieFailed, setWelcomeLottieFailed] = useState(false);
+  const welcomeRobotContainerRef = useRef<HTMLDivElement | null>(null);
+  const welcomeAnimationRef = useRef<LottiePlayer | null>(null);
+  const welcomeStartTimerRef = useRef<number | null>(null);
+  const welcomeExitTimerRef = useRef<number | null>(null);
+  const welcomeFallbackTimerRef = useRef<number | null>(null);
+  const welcomeSpeechWatchdogRef = useRef<number | null>(null);
+  const welcomeStartedRef = useRef(false);
+  const welcomeExitStartedRef = useRef(false);
+  const announcementSpeakRef = useRef<((text: string, onDone?: () => void, onError?: () => void) => void) | null>(null);
   const robotContainerRef = useRef<HTMLDivElement | null>(null);
   const robotAnimationRef = useRef<LottiePlayer | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -106,41 +118,71 @@ export function AcademicAIAssistant() {
 
     const loadRobotAnimation = async () => {
       try {
-        const response = await fetch('/animations/ai-robot.json.gz.b64', { cache: 'force-cache' });
+        const [response, welcomeResponse] = await Promise.all([
+          fetch('/animations/ai-robot.json.gz.b64', { cache: 'force-cache' }),
+          fetch('/animations/campus-welcome-robot.json.gz.b64', { cache: 'force-cache' }),
+        ]);
         if (!response.ok) throw new Error('Unable to load the robot animation asset.');
 
-        const encoded = (await response.text()).trim();
-        const binary = window.atob(encoded);
-        const compressedBuffer = new ArrayBuffer(binary.length);
-        const compressed = new Uint8Array(compressedBuffer);
-        for (let index = 0; index < binary.length; index += 1) {
-          compressed[index] = binary.charCodeAt(index);
+        const decodeAnimation = async (assetResponse: Response) => {
+          const encoded = (await assetResponse.text()).trim();
+          const binary = window.atob(encoded);
+          const compressedBuffer = new ArrayBuffer(binary.length);
+          const compressed = new Uint8Array(compressedBuffer);
+          for (let index = 0; index < binary.length; index += 1) {
+            compressed[index] = binary.charCodeAt(index);
+          }
+          if (typeof DecompressionStream === 'undefined') {
+            throw new Error('This browser does not support compressed animation assets.');
+          }
+          const decompressed = new Blob([compressedBuffer])
+            .stream()
+            .pipeThrough(new DecompressionStream('gzip'));
+          return new Response(decompressed).json();
+        };
+
+        const [animationData, welcomeAnimationData] = await Promise.all([
+          decodeAnimation(response),
+          welcomeResponse.ok ? decodeAnimation(welcomeResponse).catch(() => null) : Promise.resolve(null),
+        ]);
+
+        if (cancelled || !window.lottie) return;
+
+        if (robotContainerRef.current) {
+          robotAnimationRef.current = window.lottie.loadAnimation({
+            container: robotContainerRef.current,
+            renderer: 'svg',
+            loop: true,
+            autoplay: true,
+            animationData,
+            rendererSettings: {
+              preserveAspectRatio: 'xMidYMid meet',
+              progressiveLoad: true,
+            },
+          });
         }
 
-        if (typeof DecompressionStream === 'undefined') {
-          throw new Error('This browser does not support compressed animation assets.');
+        if (welcomeAnimationData && welcomeRobotContainerRef.current) {
+          welcomeAnimationRef.current = window.lottie.loadAnimation({
+            container: welcomeRobotContainerRef.current,
+            renderer: 'svg',
+            loop: true,
+            autoplay: true,
+            animationData: welcomeAnimationData,
+            rendererSettings: {
+              preserveAspectRatio: 'xMidYMid meet',
+              progressiveLoad: true,
+            },
+          });
+          setWelcomeLottieFailed(false);
+        } else {
+          setWelcomeLottieFailed(true);
         }
-
-        const decompressed = new Blob([compressedBuffer])
-          .stream()
-          .pipeThrough(new DecompressionStream('gzip'));
-        const animationData = await new Response(decompressed).json();
-
-        if (cancelled || !robotContainerRef.current || !window.lottie) return;
-
-        robotAnimationRef.current = window.lottie.loadAnimation({
-          container: robotContainerRef.current,
-          renderer: 'svg',
-          loop: true,
-          autoplay: true,
-          animationData,
-          rendererSettings: {
-            preserveAspectRatio: 'xMidYMid meet',
-            progressiveLoad: true,
-          },
-        });
       } catch {
-        if (!cancelled) setLottieFailed(true);
+        if (!cancelled) {
+          setLottieFailed(true);
+          setWelcomeLottieFailed(true);
+        }
       }
     };
 
@@ -190,6 +232,8 @@ export function AcademicAIAssistant() {
       script?.removeEventListener('error', handleScriptError);
       robotAnimationRef.current?.destroy();
       robotAnimationRef.current = null;
+      welcomeAnimationRef.current?.destroy();
+      welcomeAnimationRef.current = null;
     };
   }, [isOpen]);
 
@@ -221,11 +265,12 @@ export function AcademicAIAssistant() {
     };
   }, [isOpen]);
 
-  const speak = useCallback((text: string, onDone?: () => void) => {
+  const speak = useCallback((text: string, onDone?: () => void, onError?: () => void) => {
     const requestId = ++speechRequestIdRef.current;
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       setIsSpeaking(false);
       setVoiceStatus('এই browser-এ speech synthesis সুবিধা নেই।');
+      onError?.();
       return;
     }
 
@@ -336,6 +381,7 @@ export function AcademicAIAssistant() {
               ? 'ডিভাইসের audio output ব্যবহার করা যাচ্ছে না।'
               : 'Speech engine error: ' + event.error;
           setVoiceStatus(reason + ' আবার চেষ্টা করুন।');
+          onError?.();
         };
 
         activeUtteranceRef.current = utterance;
@@ -348,6 +394,58 @@ export function AcademicAIAssistant() {
     setVoiceStatus('Free device voice চালু হচ্ছে...');
     beginQueue();
   }, [voiceLanguage, voiceGender]);
+
+  announcementSpeakRef.current = speak;
+
+  const beginWelcomeExit = useCallback(() => {
+    if (welcomeExitStartedRef.current) return;
+    welcomeExitStartedRef.current = true;
+
+    if (welcomeStartTimerRef.current !== null) window.clearTimeout(welcomeStartTimerRef.current);
+    if (welcomeFallbackTimerRef.current !== null) window.clearTimeout(welcomeFallbackTimerRef.current);
+    if (welcomeSpeechWatchdogRef.current !== null) window.clearTimeout(welcomeSpeechWatchdogRef.current);
+
+    setWelcomePhase('exiting');
+    welcomeExitTimerRef.current = window.setTimeout(() => {
+      setWelcomeVisible(false);
+      welcomeAnimationRef.current?.stop?.();
+    }, 900);
+  }, []);
+
+  useEffect(() => {
+    // A short entrance delay makes the robot appear before its announcement begins.
+    const timer = window.setTimeout(() => {
+      if (welcomeExitStartedRef.current || welcomeStartedRef.current) return;
+      welcomeStartedRef.current = true;
+      setWelcomePhase('speaking');
+
+      const announcement =
+        'আসসালামু আলাইকুম! আমি Campus Assistant। আমাদের শিক্ষামূলক প্ল্যাটফর্মকে সমৃদ্ধ করতে অনুগ্রহ করে প্রতিটি অধ্যায়ের নোট আপলোড করে সহায়তা করুন। আপনার শেয়ার করা নোট অন্য শিক্ষার্থীদের পড়াশোনায় অনেক উপকার করবে। ধন্যবাদ।';
+
+      welcomeSpeechWatchdogRef.current = window.setTimeout(beginWelcomeExit, 25000);
+      announcementSpeakRef.current?.(
+        announcement,
+        beginWelcomeExit,
+        () => {
+          // If autoplay is blocked by the browser, leave the written reminder visible briefly.
+          welcomeFallbackTimerRef.current = window.setTimeout(beginWelcomeExit, 4500);
+        }
+      );
+    }, 900);
+
+    welcomeStartTimerRef.current = timer;
+    return () => window.clearTimeout(timer);
+  }, [beginWelcomeExit]);
+
+  const stopWelcomeAnnouncement = () => {
+    welcomeStartedRef.current = true;
+    if (welcomeStartTimerRef.current !== null) window.clearTimeout(welcomeStartTimerRef.current);
+    speechRequestIdRef.current += 1;
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    activeUtteranceRef.current = null;
+    setIsSpeaking(false);
+    beginWelcomeExit();
+  };
 
   const startListening = useCallback(() => {
     if (!voiceModeRef.current || isLoadingRef.current) return;
@@ -559,6 +657,8 @@ export function AcademicAIAssistant() {
     };
 
     return (
+      <>
+      <div className={welcomeVisible ? 'pointer-events-none invisible' : ''}>
       <div
         className="fixed bottom-4 right-7 z-[60] sm:bottom-6 sm:right-8"
         style={{
@@ -594,6 +694,50 @@ export function AcademicAIAssistant() {
           </button>
         </div>
       </div>
+      </div>
+      {welcomeVisible && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`ai-welcome-overlay ${welcomePhase === 'exiting' ? 'ai-welcome-exit' : 'ai-welcome-enter'}`}
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget && welcomePhase === 'exiting') {
+              setWelcomeVisible(false);
+            }
+          }}
+        >
+          <div className="flex w-full max-w-[680px] items-center justify-center gap-2 sm:gap-4">
+            <div className="relative h-[142px] w-[104px] shrink-0 sm:h-[210px] sm:w-[154px]">
+              <div
+                ref={welcomeRobotContainerRef}
+                aria-hidden="true"
+                className={`h-full w-full overflow-visible ${welcomeLottieFailed ? 'hidden' : ''}`}
+              />
+              {welcomeLottieFailed && <Bot aria-hidden="true" className="h-full w-full p-2 text-indigo-600 drop-shadow-xl" />}
+            </div>
+            <div className="relative min-w-0 max-w-[470px] flex-1 rounded-2xl border border-indigo-100 bg-white/95 p-3 pr-9 text-slate-800 shadow-[0_18px_55px_rgba(30,41,59,0.22)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 sm:rounded-3xl sm:p-5 sm:pr-11">
+              <button
+                type="button"
+                onClick={stopWelcomeAnnouncement}
+                aria-label="Stop announcement and dismiss Campus Assistant"
+                title="ভয়েস বন্ধ করুন"
+                className="absolute -right-2 -top-2 z-10 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-rose-600 text-white shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300 dark:border-slate-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300 sm:text-xs">
+                <Volume2 className="h-4 w-4" />
+                Campus Assistant
+                {welcomePhase === 'speaking' && <span className="ml-auto inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+              </div>
+              <p className="text-[12px] leading-relaxed sm:text-sm">
+                আসসালামু আলাইকুম! আমি Campus Assistant। আমাদের শিক্ষামূলক প্ল্যাটফর্মকে সমৃদ্ধ করতে অনুগ্রহ করে প্রতিটি অধ্যায়ের নোট আপলোড করে সহায়তা করুন। আপনার শেয়ার করা নোট অন্য শিক্ষার্থীদের পড়াশোনায় অনেক উপকার করবে। ধন্যবাদ।
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
