@@ -61,8 +61,7 @@ export function AcademicAIAssistant() {
     offsetY: number;
     moved: boolean;
   } | null>(null);
-  const lottieFailedState = useState(false);
-  const [lottieFailed, setLottieFailed] = lottieFailedState;
+  const [lottieFailed, setLottieFailed] = useState(false);
   const robotContainerRef = useRef<HTMLDivElement | null>(null);
   const robotAnimationRef = useRef<LottiePlayer | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
