@@ -17,6 +17,7 @@ type VoiceGender = 'female' | 'male';
 
 type LottiePlayer = {
   destroy: () => void;
+  stop?: () => void;
 };
 
 type LottieWeb = {
@@ -103,6 +104,10 @@ export function AcademicAIAssistant() {
       mountedRef.current = false;
       voiceModeRef.current = false;
       recognitionRef.current?.stop?.();
+      if (welcomeStartTimerRef.current !== null) window.clearTimeout(welcomeStartTimerRef.current);
+      if (welcomeExitTimerRef.current !== null) window.clearTimeout(welcomeExitTimerRef.current);
+      if (welcomeFallbackTimerRef.current !== null) window.clearTimeout(welcomeFallbackTimerRef.current);
+      if (welcomeSpeechWatchdogRef.current !== null) window.clearTimeout(welcomeSpeechWatchdogRef.current);
       speechRequestIdRef.current += 1;
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
       activeUtteranceRef.current = null;
