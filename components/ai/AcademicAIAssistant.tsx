@@ -97,43 +97,63 @@ export function AcademicAIAssistant() {
       }
 
       const part = chunks[index++];
-      const utterance = new SpeechSynthesisUtterance(part);
       const hasBangla = /[\u0980-\u09FF]/.test(part);
-      const lang = voiceLanguage === 'bn-BD' || (voiceLanguage === 'mixed' && hasBangla)
+      const requestedLang = voiceLanguage === 'bn-BD' || (voiceLanguage === 'mixed' && hasBangla)
         ? 'bn-BD'
         : 'en-US';
-      utterance.lang = lang;
-      utterance.rate = 0.96;
-      utterance.pitch = voiceGender === 'female' ? 1.08 : 0.92;
-      utterance.volume = 1;
-
       const voices = synth.getVoices();
-      const matchingVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith(lang.toLowerCase().slice(0, 2)));
+      const matchingVoices = voices.filter((voice) =>
+        voice.lang.toLowerCase().startsWith(requestedLang.slice(0, 2))
+      );
       const preferredVoice = matchingVoices.find((voice) =>
         voiceGender === 'female'
-          ? /female|woman|zira|samantha|google.*(বাংলা|bangla|bengali)|female/i.test(voice.name)
+          ? /female|woman|zira|samantha|google.*(বাংলা|bangla|bengali)/i.test(voice.name)
           : /male|man|david|alex|daniel/i.test(voice.name)
       ) || matchingVoices[0];
-      if (preferredVoice) utterance.voice = preferredVoice;
 
-      utterance.onstart = () => {
-        if (mountedRef.current && requestId === speechRequestIdRef.current) {
-          setIsSpeaking(true);
-          setVoiceStatus('Campus Assistant কথা বলছে...');
-        }
-      };
-      utterance.onend = () => {
-        if (requestId === speechRequestIdRef.current) speakNext();
-      };
-      utterance.onerror = (event) => {
+      // Retry without forcing a locale if the device has no voice for that language.
+      let fallbackAttempted = false;
+      const speakAttempt = (fallback = false) => {
         if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
-        activeUtteranceRef.current = null;
-        setIsSpeaking(false);
-        setVoiceStatus('এই ডিভাইসের voice service সাড়া দিচ্ছে না। আবার চেষ্টা করুন।');
-      };
+        const utterance = new SpeechSynthesisUtterance(part);
+        utterance.lang = fallback ? '' : (preferredVoice?.lang || requestedLang);
+        utterance.rate = 0.96;
+        utterance.pitch = voiceGender === 'female' ? 1.08 : 0.92;
+        utterance.volume = 1;
+        if (!fallback && preferredVoice) utterance.voice = preferredVoice;
 
-      activeUtteranceRef.current = utterance;
-      synth.speak(utterance);
+        utterance.onstart = () => {
+          if (mountedRef.current && requestId === speechRequestIdRef.current) {
+            setIsSpeaking(true);
+            setVoiceStatus('Campus Assistant কথা বলছে...');
+          }
+        };
+        utterance.onend = () => {
+          if (requestId === speechRequestIdRef.current) speakNext();
+        };
+        utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+          if (!mountedRef.current || requestId !== speechRequestIdRef.current) return;
+          if (!fallbackAttempted && (event.error === 'language-unavailable' || event.error === 'voice-unavailable')) {
+            fallbackAttempted = true;
+            speakAttempt(true);
+            return;
+          }
+          activeUtteranceRef.current = null;
+          setIsSpeaking(false);
+          const reason = event.error === 'synthesis-unavailable'
+            ? 'এই browser-এ speech engine পাওয়া যাচ্ছে না।'
+            : event.error === 'language-unavailable' || event.error === 'voice-unavailable'
+              ? 'এই ডিভাইসে উপযুক্ত ভাষার voice পাওয়া যায়নি।'
+              : event.error === 'audio-hardware' || event.error === 'audio-busy'
+                ? 'ডিভাইসের audio output ব্যবহার করা যাচ্ছে না।'
+                : 'Voice service error: ' + event.error;
+          setVoiceStatus(reason + ' আবার চেষ্টা করুন।');
+        };
+
+        activeUtteranceRef.current = utterance;
+        synth.speak(utterance);
+      };
+      speakAttempt();
     };
 
     setVoiceStatus('Device-এর free voice দিয়ে কথা তৈরি হচ্ছে...');
