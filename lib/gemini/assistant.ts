@@ -678,7 +678,7 @@ async function findAcademicQuestionMatches(
       const topicRecord = await prisma.topic.findFirst({
         where: {
           chapter: {
-            subject: { code: 'PHYS-405' },
+            subject: { code: subjectCode },
             chapterNumber: target.topic.chapterNumber,
           },
           topicNumber: target.topic.topicNumber,
