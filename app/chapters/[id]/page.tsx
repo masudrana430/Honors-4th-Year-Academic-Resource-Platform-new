@@ -111,7 +111,7 @@ export default async function ChapterDetailsPage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {chapter.youtubeClasses.map((vid) => (
-              <div key={vid.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+              <div key={vid.id} id={`video-${vid.id}`} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
                 <div className="aspect-video bg-slate-900 relative">
                   <img
                     src={vid.thumbnailUrl}
@@ -124,7 +124,7 @@ export default async function ChapterDetailsPage({
                   </span>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-sm font-bold text-slate-900">{vid.title}</h3>
+                  <h3 className="break-words text-sm font-bold text-slate-900">{vid.title}</h3>
                   <p className="mt-1 text-xs text-slate-600 line-clamp-2">{vid.shortDescription}</p>
                   <a
                     href={vid.youtubeUrl}

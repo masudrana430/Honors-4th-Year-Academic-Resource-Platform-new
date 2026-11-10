@@ -573,7 +573,7 @@ export function AcademicAIAssistant() {
       setMessages((prev) => [...prev, { id: 'a-' + Date.now(), sender: 'assistant', text: answer, payload: data }]);
       // Only explicit, server-resolved chapter navigation requests may auto-open.
       const targetHref = data.navigationTarget?.type === 'CHAPTER' &&
-        /^\/chapters\/[A-Za-z0-9_-]+$/.test(data.navigationTarget.href)
+        /^\/chapters\/[A-Za-z0-9_-]+(?:#(?:video|topic)-[A-Za-z0-9_-]+)?$/.test(data.navigationTarget.href)
         ? data.navigationTarget.href
         : null;
 

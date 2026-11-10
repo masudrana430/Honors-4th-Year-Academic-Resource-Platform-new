@@ -1,4 +1,5 @@
 import { PrismaClient, FileFormat } from '@prisma/client';
+import { buildClassicalElectrodynamicsLectureTitle } from '../lib/academic/classical-electrodynamics-question-bank';
 
 const prisma = new PrismaClient();
 
@@ -2469,6 +2470,9 @@ async function main() {
           }
           const videoId = lec.url.split('/').pop()?.split('?')[0] || '';
           const lectureId = `${topicId}-lec-${lec.lec}`;
+          const enrichedTitle = subData.code === 'PHYS-405'
+            ? buildClassicalElectrodynamicsLectureTitle(chData.num, topData.num, lec.lec, lec.title)
+            : lec.title;
           await prisma.youTubeClass.upsert({
             where: { id: lectureId },
             create: {
@@ -2477,7 +2481,7 @@ async function main() {
               chapterId: chapter.id,
               topicId: topic.id,
               lectureNumber: lec.lec,
-              title: lec.title,
+              title: enrichedTitle,
               shortDescription: lec.desc,
               youtubeUrl: lec.url.trim(),
               youtubeVideoId: videoId,
@@ -2488,7 +2492,7 @@ async function main() {
             },
             update: {
               lectureNumber: lec.lec,
-              title: lec.title,
+              title: enrichedTitle,
               shortDescription: lec.desc,
               youtubeUrl: lec.url.trim(),
               youtubeVideoId: videoId,

@@ -1,6 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/prisma/client';
 import { AIChatResponsePayload, AIChatResourceLink } from '@/types';
+import {
+  CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
+  getLectureNumbersForQuestion,
+} from '@/lib/academic/classical-electrodynamics-question-bank';
 
 interface ParsedAcademicQuery {
   language: 'en' | 'bn' | 'mixed';
@@ -79,6 +83,114 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
     } catch (err) {
       console.warn('Gemini intent parsing fell back to deterministic keyword parser:', err);
     }
+  }
+
+
+  // Match question-first queries against the supplied Classical Electrodynamics QC list.
+  // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
+  const classicalQuestionMatches = await findClassicalElectrodynamicsQuestionMatches(
+    trimmed,
+    parsed.keywords
+  );
+  if (classicalQuestionMatches.length === 1) {
+    const match = classicalQuestionMatches[0];
+    const language = parsed.language || fallbackLang;
+    if (match.video) {
+      const video = match.video;
+      return {
+        answer: language === 'en'
+          ? \`I matched your question to \${match.topic.code}, question \${match.question.number}. Opening the exact lecture.\`
+          : language === 'mixed'
+            ? \`\${match.topic.code} er question \${match.question.number} match korechi. Exact lecture-ti open korchi.\`
+            : \`\${match.topic.code} অধ্যায়ের প্রশ্ন নং \${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।\`,
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: video.subject.name,
+          chapterNumber: video.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'VIDEO',
+        },
+        resources: [{
+          id: video.id,
+          type: 'YOUTUBE',
+          title: video.title,
+          contextLabel: \`\${video.subject.name} • \${match.topic.code} • Lec \${video.lectureNumber}\`,
+          href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+          externalUrl: video.youtubeUrl,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+        },
+        suggestions: [],
+      };
+    }
+
+    if (match.topicRecord) {
+      const topicRecord = match.topicRecord;
+      return {
+        answer: language === 'en'
+          ? \`I identified question \${match.question.number}, but no YouTube lecture is currently linked to it. Opening its topic.\`
+          : language === 'mixed'
+            ? \`Question \${match.question.number} identify korechi, kintu ei question-er jonno kono YouTube lecture linked nei. Topic-ti open korchi.\`
+            : \`প্রশ্ন নং \${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।\`,
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: topicRecord.subject.name,
+          chapterNumber: topicRecord.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'INFO',
+        },
+        resources: [{
+          id: topicRecord.id,
+          type: 'TOPIC',
+          title: \`\${match.topic.code} — \${topicRecord.title}\`,
+          contextLabel: \`\${topicRecord.subject.name} • Chapter \${topicRecord.chapter.chapterNumber}\`,
+          href: \`/chapters/\${topicRecord.chapterId}#topic-\${topicRecord.id}\`,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: \`/chapters/\${topicRecord.chapterId}#topic-\${topicRecord.id}\`,
+        },
+        suggestions: [],
+      };
+    }
+  } else if (classicalQuestionMatches.length > 1) {
+    const language = parsed.language || fallbackLang;
+    return {
+      answer: language === 'en'
+        ? 'I found more than one closely matching question. Choose the exact lecture below.'
+        : language === 'mixed'
+          ? 'Ekadhik question match koreche. Nicher list theke exact lecture-ti select korun.'
+          : 'একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক প্রশ্নের ভিডিও ক্লাস নির্বাচন করুন।',
+      detectedLanguage: language,
+      interpretedIntent: {
+        subjectQuery: 'চিরায়ত তড়িৎগতিবিদ্যা (Classical Electrodynamics)',
+        resourceFilter: 'VIDEO',
+      },
+      resources: classicalQuestionMatches.map((match) => {
+        const video = match.video;
+        return video
+          ? {
+              id: video.id,
+              type: 'YOUTUBE' as const,
+              title: video.title,
+              contextLabel: \`\${video.subject.name} • \${match.topic.code} • Lec \${video.lectureNumber}\`,
+              href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+              externalUrl: video.youtubeUrl,
+            }
+          : {
+              id: match.topic.code,
+              type: 'TOPIC' as const,
+              title: \`\${match.topic.code} — \${match.topic.title} (প্রশ্ন \${toBengaliQuestionNumber(match.question.number)})\`,
+              contextLabel: 'চিরায়ত তড়িৎগতিবিদ্যা',
+              href: match.topicRecord
+                ? \`/chapters/\${match.topicRecord.chapterId}#topic-\${match.topicRecord.id}\`
+                : '/subjects/sub-ced-405',
+            };
+      }),
+      suggestions: [],
+    };
   }
 
   // Resolve explicit navigation requests and chapter-title-only queries before broad resource search.
@@ -257,6 +369,217 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
       'Find chapter-wise classes about electromagnetic theory',
     ],
   };
+}
+
+
+type ClassicalQuestionMatch = {
+  topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
+  question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+  score: number;
+  video: {
+    id: string;
+    title: string;
+    lectureNumber: number;
+    chapterId: string;
+    youtubeUrl: string;
+    topic: { topicNumber: number } | null;
+    subject: { name: string };
+    chapter: { chapterNumber: number };
+  } | null;
+  topicRecord: {
+    id: string;
+    title: string;
+    chapterId: string;
+    subject: { name: string };
+    chapter: { chapterNumber: number };
+  } | null;
+};
+
+function toBengaliQuestionNumber(value: string): string {
+  return value.replace(/[0-9]/g, (digit) => '০১২৩৪৫৬৭৮৯'[Number(digit)] || digit);
+}
+
+function normalizeQuestionMatchText(value: string): string {
+  return value
+    .toLocaleLowerCase('bn-BD')
+    .normalize('NFKC')
+    .replace(/[ড়ঢ়]/g, 'ড়')
+    .replace(/য়/g, 'য়')
+    .replace(/গাউসের/g, 'গসের')
+    .replace(/গাউস/g, 'গস')
+    .replace(/কুলম্ব্/g, 'কুলম্ব')
+    .replace(/তড়িৎ/g, 'তড়িৎ')
+    .replace(/চৌম্বকীয়/g, 'চৌম্বকীয়')
+    .replace(/\\vec\{([^{}]+)\}/g, ' $1 ')
+    .replace(/\\hat\{([^{}]+)\}/g, ' $1 ')
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, ' $1 $2 ')
+    .replace(/\\[a-zA-Z]+/g, ' ')
+    .replace(/[^a-z0-9\u0980-\u09ff]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function questionMatchTokens(value: string): string[] {
+  const stopWords = new Set([
+    'এবং', 'ও', 'আর', 'এর', 'এক', 'একটি', 'কোন', 'কোনো', 'কী', 'কি',
+    'হতে', 'থেকে', 'যে', 'যা', 'যার', 'যেখানে', 'হলে', 'হয়', 'হয়',
+    'করে', 'কর', 'করা', 'করতে', 'দাও', 'দিন', 'এই', 'ঐ', 'উক্ত',
+    'মধ্যে', 'উপর', 'নিচে', 'জন্য', 'সাথে', 'সহ', 'প্রতীকগুলো',
+    'প্রচলিত', 'অর্থ', 'বহন', 'নং', 'প্রশ্ন', 'অধ্যায়', 'অধ্যায়',
+    'chapter', 'question', 'no', 'the', 'a', 'an', 'of', 'to', 'and',
+    'is', 'are', 'for', 'show', 'prove', 'derive', 'explain',
+  ]);
+  return value.split(' ').filter((token) => token.length > 1 && !stopWords.has(token));
+}
+
+function scoreQuestionText(query: string, candidate: string): number {
+  const normalizedQuery = normalizeQuestionMatchText(query);
+  const normalizedCandidate = normalizeQuestionMatchText(candidate);
+  if (!normalizedQuery || !normalizedCandidate) return 0;
+  if (normalizedCandidate.includes(normalizedQuery) && normalizedQuery.length >= 10) return 1;
+
+  const queryTokens = new Set(questionMatchTokens(normalizedQuery));
+  const candidateTokens = new Set(questionMatchTokens(normalizedCandidate));
+  if (queryTokens.size < 2 || candidateTokens.size === 0) return 0;
+
+  const overlap = [...queryTokens].filter((token) => candidateTokens.has(token)).length;
+  const queryCoverage = overlap / queryTokens.size;
+  const candidateCoverage = overlap / candidateTokens.size;
+  return queryCoverage * 0.82 + candidateCoverage * 0.18;
+}
+
+async function findClassicalElectrodynamicsQuestionMatches(
+  query: string,
+  keywords: string[]
+): Promise<ClassicalQuestionMatch[]> {
+  const queryVariants = [query, ...keywords].filter(Boolean);
+  const scoredQuestions: Array<{
+    topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
+    question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+    score: number;
+    lectureNumbers: number[];
+  }> = [];
+
+  for (const topic of CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK) {
+    for (const question of topic.questions) {
+      const searchableTexts = [question.text, ...question.aliases];
+      let score = 0;
+      for (const queryVariant of queryVariants) {
+        for (const candidateText of searchableTexts) {
+          score = Math.max(score, scoreQuestionText(queryVariant, candidateText));
+        }
+      }
+      if (score >= 0.76) {
+        scoredQuestions.push({
+          topic,
+          question,
+          score,
+          lectureNumbers: getLectureNumbersForQuestion(topic, question.number),
+        });
+      }
+    }
+  }
+
+  if (!scoredQuestions.length) return [];
+  scoredQuestions.sort((left, right) => right.score - left.score);
+  const bestScore = scoredQuestions[0].score;
+  const selected = scoredQuestions.filter((entry) => entry.score >= Math.max(0.76, bestScore - 0.1));
+  const targets = new Map<string, {
+    topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
+    lectureNumber: number | null;
+    question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+    score: number;
+  }>();
+
+  for (const entry of selected) {
+    if (entry.lectureNumbers.length) {
+      for (const lectureNumber of entry.lectureNumbers) {
+        const key = \`\${entry.topic.chapterNumber}:\${entry.topic.topicNumber}:\${lectureNumber}\`;
+        const previous = targets.get(key);
+        if (!previous || previous.score < entry.score) {
+          targets.set(key, { topic: entry.topic, lectureNumber, question: entry.question, score: entry.score });
+        }
+      }
+    } else {
+      const key = \`\${entry.topic.chapterNumber}:\${entry.topic.topicNumber}:unassigned\`;
+      const previous = targets.get(key);
+      if (!previous || previous.score < entry.score) {
+        targets.set(key, { topic: entry.topic, lectureNumber: null, question: entry.question, score: entry.score });
+      }
+    }
+  }
+
+  const targetEntries = [...targets.entries()];
+  const videoTargets = targetEntries
+    .filter(([, target]) => target.lectureNumber !== null)
+    .map(([key, target]) => ({
+      key,
+      chapterNumber: target.topic.chapterNumber,
+      topicNumber: target.topic.topicNumber,
+      lectureNumber: target.lectureNumber as number,
+    }));
+
+  const videos = videoTargets.length
+    ? await prisma.youTubeClass.findMany({
+        where: {
+          subject: { code: 'PHYS-405' },
+          OR: videoTargets.map((target) => ({
+            chapter: { chapterNumber: target.chapterNumber },
+            topic: { topicNumber: target.topicNumber },
+            lectureNumber: target.lectureNumber,
+          })),
+        },
+        include: {
+          subject: { select: { name: true } },
+          chapter: { select: { chapterNumber: true } },
+          topic: { select: { topicNumber: true } },
+        },
+      })
+    : [];
+
+  const matches: ClassicalQuestionMatch[] = [];
+  for (const [, target] of targetEntries) {
+    if (target.lectureNumber !== null) {
+      const video = videos.find((entry) =>
+        entry.chapter.chapterNumber === target.topic.chapterNumber &&
+        entry.topic?.topicNumber === target.topic.topicNumber &&
+        entry.lectureNumber === target.lectureNumber
+      );
+      if (video) {
+        matches.push({
+          topic: target.topic,
+          question: target.question,
+          score: target.score,
+          video,
+          topicRecord: null,
+        });
+      }
+    } else {
+      const topicRecord = await prisma.topic.findFirst({
+        where: {
+          subject: { code: 'PHYS-405' },
+          chapter: { chapterNumber: target.topic.chapterNumber },
+          topicNumber: target.topic.topicNumber,
+        },
+        include: {
+          subject: { select: { name: true } },
+          chapter: { select: { chapterNumber: true } },
+        },
+      });
+      if (topicRecord) {
+        matches.push({
+          topic: target.topic,
+          question: target.question,
+          score: target.score,
+          video: null,
+          topicRecord,
+        });
+      }
+    }
+  }
+
+  matches.sort((left, right) => right.score - left.score);
+  return matches.slice(0, 5);
 }
 
 function normalizeChapterText(value: string): string {
