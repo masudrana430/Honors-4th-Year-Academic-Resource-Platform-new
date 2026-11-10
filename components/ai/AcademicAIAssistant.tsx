@@ -1,6 +1,5 @@
-import { MathTitle } from '@/components/ui/MathTitle';
 'use client';
-
+import { MathTitle } from '@/components/ui/MathTitle';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
