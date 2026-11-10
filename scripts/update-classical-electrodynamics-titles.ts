@@ -1,5 +1,8 @@
-import { prisma } from '../lib/prisma/client';
+import { loadEnvConfig } from '@next/env';
 import { buildClassicalElectrodynamicsLectureTitle, CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK } from '../lib/academic/classical-electrodynamics-question-bank';
+
+loadEnvConfig(process.cwd());
+const { prisma } = await import('../lib/prisma/client');
 
 async function main() {
   const subject = await prisma.subject.findUnique({ where: { code: 'PHYS-405' } });
