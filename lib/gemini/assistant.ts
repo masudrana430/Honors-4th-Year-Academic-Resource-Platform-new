@@ -442,7 +442,7 @@ function scoreQuestionText(query: string, candidate: string): number {
   const candidateTokens = new Set(questionMatchTokens(normalizedCandidate));
   if (queryTokens.size < 2 || candidateTokens.size === 0) return 0;
 
-  const overlap = [...queryTokens].filter((token) => candidateTokens.has(token)).length;
+  const overlap = Array.from(queryTokens).filter((token) => candidateTokens.has(token)).length;
   const queryCoverage = overlap / queryTokens.size;
   const candidateCoverage = overlap / candidateTokens.size;
   return queryCoverage * 0.82 + candidateCoverage * 0.18;
@@ -509,7 +509,7 @@ async function findClassicalElectrodynamicsQuestionMatches(
     }
   }
 
-  const targetEntries = [...targets.entries()];
+  const targetEntries = Array.from(targets.entries());
   const videoTargets = targetEntries
     .filter(([, target]) => target.lectureNumber !== null)
     .map(([key, target]) => ({
