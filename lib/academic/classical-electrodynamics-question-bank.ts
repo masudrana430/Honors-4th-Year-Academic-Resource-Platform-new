@@ -655,7 +655,7 @@ export const CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK: ClassicalElectrodynamicsTo
       },
       {
         "number": "5",
-        "text": "দেখাও যে, $\\vec{v}$ বেগে গতিশীল চার্জিত কণার জন্য ভেক্টর বিভব $\\vec{A} = \\frac{\\vec{v}}{c^2}V$; যখন V হলো স্থির তড়িৎ বিভব।",
+        "text": "দেখাও যে, $\\vec{v}$ বেগে গতিশীল চার্জিত কণার জন্য ভেক্টর বিভব $\\vec{A} = \\frac{\\vec{v}}{c^2}V$; যখন $V$ হলো স্থির তড়িৎ বিভব।",
         "aliases": []
       },
       {
