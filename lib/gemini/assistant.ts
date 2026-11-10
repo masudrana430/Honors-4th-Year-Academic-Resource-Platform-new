@@ -99,10 +99,10 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
       const video = match.video;
       return {
         answer: language === 'en'
-          ? \`I matched your question to \${match.topic.code}, question \${match.question.number}. Opening the exact lecture.\`
+          ? `I matched your question to ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
           : language === 'mixed'
-            ? \`\${match.topic.code} er question \${match.question.number} match korechi. Exact lecture-ti open korchi.\`
-            : \`\${match.topic.code} অধ্যায়ের প্রশ্ন নং \${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।\`,
+            ? `${match.topic.code} er question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
+            : `${match.topic.code} অধ্যায়ের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
         detectedLanguage: language,
         interpretedIntent: {
           subjectQuery: video.subject.name,
@@ -114,13 +114,13 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
           id: video.id,
           type: 'YOUTUBE',
           title: video.title,
-          contextLabel: \`\${video.subject.name} • \${match.topic.code} • Lec \${video.lectureNumber}\`,
-          href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+          contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
+          href: `/chapters/${video.chapterId}#video-${video.id}`,
           externalUrl: video.youtubeUrl,
         }],
         navigationTarget: {
           type: 'CHAPTER',
-          href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+          href: `/chapters/${video.chapterId}#video-${video.id}`,
         },
         suggestions: [],
       };
@@ -130,10 +130,10 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
       const topicRecord = match.topicRecord;
       return {
         answer: language === 'en'
-          ? \`I identified question \${match.question.number}, but no YouTube lecture is currently linked to it. Opening its topic.\`
+          ? `I identified question ${match.question.number}, but no YouTube lecture is currently linked to it. Opening its topic.`
           : language === 'mixed'
-            ? \`Question \${match.question.number} identify korechi, kintu ei question-er jonno kono YouTube lecture linked nei. Topic-ti open korchi.\`
-            : \`প্রশ্ন নং \${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।\`,
+            ? `Question ${match.question.number} identify korechi, kintu ei question-er jonno kono YouTube lecture linked nei. Topic-ti open korchi.`
+            : `প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।`,
         detectedLanguage: language,
         interpretedIntent: {
           subjectQuery: topicRecord.subject.name,
@@ -144,13 +144,13 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
         resources: [{
           id: topicRecord.id,
           type: 'TOPIC',
-          title: \`\${match.topic.code} — \${topicRecord.title}\`,
-          contextLabel: \`\${topicRecord.subject.name} • Chapter \${topicRecord.chapter.chapterNumber}\`,
-          href: \`/chapters/\${topicRecord.chapterId}#topic-\${topicRecord.id}\`,
+          title: `${match.topic.code} — ${topicRecord.title}`,
+          contextLabel: `${topicRecord.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
+          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
         }],
         navigationTarget: {
           type: 'CHAPTER',
-          href: \`/chapters/\${topicRecord.chapterId}#topic-\${topicRecord.id}\`,
+          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
         },
         suggestions: [],
       };
@@ -175,17 +175,17 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
               id: video.id,
               type: 'YOUTUBE' as const,
               title: video.title,
-              contextLabel: \`\${video.subject.name} • \${match.topic.code} • Lec \${video.lectureNumber}\`,
-              href: \`/chapters/\${video.chapterId}#video-\${video.id}\`,
+              contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
+              href: `/chapters/${video.chapterId}#video-${video.id}`,
               externalUrl: video.youtubeUrl,
             }
           : {
               id: match.topic.code,
               type: 'TOPIC' as const,
-              title: \`\${match.topic.code} — \${match.topic.title} (প্রশ্ন \${toBengaliQuestionNumber(match.question.number)})\`,
+              title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
               contextLabel: 'চিরায়ত তড়িৎগতিবিদ্যা',
               href: match.topicRecord
-                ? \`/chapters/\${match.topicRecord.chapterId}#topic-\${match.topicRecord.id}\`
+                ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
                 : '/subjects/sub-ced-405',
             };
       }),
@@ -494,14 +494,14 @@ async function findClassicalElectrodynamicsQuestionMatches(
   for (const entry of selected) {
     if (entry.lectureNumbers.length) {
       for (const lectureNumber of entry.lectureNumbers) {
-        const key = \`\${entry.topic.chapterNumber}:\${entry.topic.topicNumber}:\${lectureNumber}\`;
+        const key = `${entry.topic.chapterNumber}:${entry.topic.topicNumber}:${lectureNumber}`;
         const previous = targets.get(key);
         if (!previous || previous.score < entry.score) {
           targets.set(key, { topic: entry.topic, lectureNumber, question: entry.question, score: entry.score });
         }
       }
     } else {
-      const key = \`\${entry.topic.chapterNumber}:\${entry.topic.topicNumber}:unassigned\`;
+      const key = `${entry.topic.chapterNumber}:${entry.topic.topicNumber}:unassigned`;
       const previous = targets.get(key);
       if (!previous || previous.score < entry.score) {
         targets.set(key, { topic: entry.topic, lectureNumber: null, question: entry.question, score: entry.score });
