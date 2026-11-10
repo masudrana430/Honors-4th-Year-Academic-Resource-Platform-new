@@ -75,7 +75,7 @@ export const STATISTICAL_MECHANICS_QUESTION_BANK: StatisticalMechanicsTopicQuest
   },
   {
     chapterNumber: 4, topicNumber: 1, code: "৪", title: "কণা পরিসংখ্যান",
-    lectures: { "1": ["3", "1"], "3": ["2", "6", "4", "5"] },
+    lectures: { "1": ["3", "1", "7"], "3": ["2", "6", "4", "5"] },
     questions: [
       { number: "1", text: "দেখাও যে, চিরায়ত সদৃশ্য কণা শনাক্তযোগ্য কিন্তু কোয়ান্টাম সদৃশ কণা শনাক্তযোগ্য নয়।", aliases: ["চিরায়ত কণা শনাক্তযোগ্য কোয়ান্টাম কণা শনাক্তযোগ্য নয়", "identical classical quantum particles distinguishable"] },
       { number: "2", text: "চিরায়ত পরিসংখ্যান ও কোয়ান্টাম পরিসংখ্যানের তুলনা কর বা উপযোগিতা বর্ণনা কর।", aliases: ["চিরায়ত ও কোয়ান্টাম পরিসংখ্যানের পার্থক্য", "classical quantum statistics comparison"] },
@@ -188,7 +188,14 @@ export function buildStatisticalMechanicsLectureTitle(
   const chapterDigits = toBengaliDigits(chapterNumber);
   const prefix = rawPrefix.replace(new RegExp("^" + chapterDigits + "\\s+"), "");
   const chapterPrefix = chapterDigits + " " + prefix;
-  const label = currentTitle.match(/\|\s*([^|]+)$/)?.[1]?.trim() || topic.title;
+  const titleBody = currentTitle.split(" — ").slice(1).join(" — ");
+  const bodyWithoutQuestion = titleBody
+    .replace(/প্রশ্ন\s*নং\s*\([^)]*\)/, "")
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/\|\s*[^|]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const label = currentTitle.match(/\|\s*([^|]+)$/)?.[1]?.trim() || bodyWithoutQuestion || topic.title;
   const preservedNotes = [...extras, ...noteTags].join(", ");
   const extraSuffix = preservedNotes ? " [" + preservedNotes.replace(/^\[|\]$/g, "") + "]" : "";
   return chapterPrefix + " — প্রশ্ন নং " + details.join("; ") + extraSuffix + " | " + label;
