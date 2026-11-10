@@ -557,8 +557,10 @@ async function findClassicalElectrodynamicsQuestionMatches(
     } else {
       const topicRecord = await prisma.topic.findFirst({
         where: {
-          subject: { code: 'PHYS-405' },
-          chapter: { chapterNumber: target.topic.chapterNumber },
+          chapter: {
+            subject: { code: 'PHYS-405' },
+            chapterNumber: target.topic.chapterNumber,
+          },
           topicNumber: target.topic.topicNumber,
         },
         include: {
