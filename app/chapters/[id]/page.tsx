@@ -1,3 +1,4 @@
+import { MathTitle } from '@/components/ui/MathTitle';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma/client';
 import { buildGoogleDriveUrls } from '@/lib/google-drive/driveClient';
@@ -124,7 +125,7 @@ export default async function ChapterDetailsPage({
                   </span>
                 </div>
                 <div className="p-4">
-                  <h3 className="break-words text-sm font-bold text-slate-900">{vid.title}</h3>
+                  <MathTitle text={vid.title} className="block break-words text-sm font-bold leading-relaxed text-slate-900" mathClassName="text-[0.98em]" />
                   <p className="mt-1 text-xs text-slate-600 line-clamp-2">{vid.shortDescription}</p>
                   <a
                     href={vid.youtubeUrl}
