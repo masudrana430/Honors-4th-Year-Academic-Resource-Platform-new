@@ -184,8 +184,10 @@ export function buildStatisticalMechanicsLectureTitle(
     (value) => value && !/^[0-9০-৯]+$/.test(value)
   );
   const noteTags = Array.from(currentTitle.matchAll(/\[[^\]]+\]/g)).map((match) => match[0]);
-  const prefix = currentTitle.split(" — ")[0] || "Lec " + lectureNumber;
-  const chapterPrefix = toBengaliDigits(chapterNumber) + " " + prefix;
+  const rawPrefix = currentTitle.split(" — ")[0] || "Lec " + lectureNumber;
+  const chapterDigits = toBengaliDigits(chapterNumber);
+  const prefix = rawPrefix.replace(new RegExp("^" + chapterDigits + "\\s+"), "");
+  const chapterPrefix = chapterDigits + " " + prefix;
   const label = currentTitle.match(/\|\s*([^|]+)$/)?.[1]?.trim() || topic.title;
   const preservedNotes = [...extras, ...noteTags].join(", ");
   const extraSuffix = preservedNotes ? " [" + preservedNotes.replace(/^\[|\]$/g, "") + "]" : "";
