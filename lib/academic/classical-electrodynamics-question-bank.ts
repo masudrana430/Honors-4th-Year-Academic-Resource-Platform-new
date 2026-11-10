@@ -705,24 +705,10 @@ export function toBengaliDigits(value: string | number): string {
 
 /** Converts the simple LaTeX used in the question bank into readable symbols for plain-text video titles. */
 export function questionTextForTitle(value: string): string {
+  // Preserve source LaTeX; the UI renders $...$ fragments with KaTeX.
+  // Avoid flattening vectors, fractions, Greek letters and scripts into fragile Unicode glyphs.
   return value
-    .replace(/\\text\{([^{}]*)\}/g, "$1")
-    .replace(/\\vec\{([^{}]*)\}/g, "$1⃗")
-    .replace(/\\hat\{([^{}]*)\}/g, "$1̂")
-    .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "($1)/($2)")
-    .replace(/\\epsilon_0/g, "ε₀").replace(/\\mu_0/g, "μ₀")
-    .replace(/\\rho/g, "ρ").replace(/\\nabla/g, "∇").replace(/\\vec\{∇\}/g, "∇⃗")
-    .replace(/\\delta/g, "δ").replace(/\\theta/g, "θ")
-    .replace(/\\lambda/g, "λ").replace(/\\omega/g, "ω")
-    .replace(/\\sigma/g, "σ").replace(/\\pi/g, "π")
-    .replace(/\\partial/g, "∂").replace(/\\times/g, "×")
-    .replace(/\\cdot/g, "·").replace(/\\rightarrow/g, "→")
-    .replace(/\\;/g, " ").replace(/\\,/g, " ")
-    .replace(/\^\{(-?\d+)\}/g, (_match, digits: string) => digits.split("").map((digit) => SUPERSCRIPTS[digit] || digit).join(""))
-    .replace(/_\{?(\d)\}?/g, (_match, digit: string) => SUBSCRIPTS[digit] || digit)
-    .replace(/\$+/g, "")
-    .replace(/[{}]/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/\\s+/g, " ")
     .replace(/[।.]+$/, "")
     .trim();
 }
