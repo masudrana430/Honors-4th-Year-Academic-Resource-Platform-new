@@ -711,7 +711,7 @@ export function questionTextForTitle(value: string): string {
     .replace(/\\hat\{([^{}]*)\}/g, "$1̂")
     .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "($1)/($2)")
     .replace(/\\epsilon_0/g, "ε₀").replace(/\\mu_0/g, "μ₀")
-    .replace(/\\rho/g, "ρ").replace(/\\nabla/g, "∇")
+    .replace(/\\rho/g, "ρ").replace(/\\nabla/g, "∇").replace(/\\vec\{∇\}/g, "∇⃗")
     .replace(/\\delta/g, "δ").replace(/\\theta/g, "θ")
     .replace(/\\lambda/g, "λ").replace(/\\omega/g, "ω")
     .replace(/\\sigma/g, "σ").replace(/\\pi/g, "π")
@@ -723,7 +723,7 @@ export function questionTextForTitle(value: string): string {
     .replace(/\$+/g, "")
     .replace(/[{}]/g, "")
     .replace(/\s+/g, " ")
-    .replace(/[।.]+$/u, "")
+    .replace(/[।.]+$/, "")
     .trim();
 }
 
@@ -745,12 +745,12 @@ export function buildClassicalElectrodynamicsLectureTitle(
     return question ? `-${toBengaliDigits(number)} (${questionTextForTitle(question.text)})` : null;
   }).filter((value): value is string => Boolean(value));
 
-  const oldQuestionList = currentTitle.match(/প্রশ্ন\s*নং\s*\(([^)]*)\)/u)?.[1] || "";
+  const oldQuestionList = currentTitle.match(/প্রশ্ন\s*নং\s*\(([^)]*)\)/)?.[1] || "";
   const extras = oldQuestionList.split(",").map((value) => value.trim()).filter(
-    (value) => value && !/^[0-9০-৯]+$/u.test(value)
+    (value) => value && !/^[0-9০-৯]+$/.test(value)
   );
   const prefix = currentTitle.split(" — ")[0] || currentTitle;
-  const label = currentTitle.match(/\|\s*([^|]+)$/u)?.[1]?.trim();
+  const label = currentTitle.match(/\|\s*([^|]+)$/)?.[1]?.trim();
   const suffix = label ? ` | ${label}` : "";
   const extraSuffix = extras.length ? `, ${extras.join(", ")}` : "";
   return `${prefix} — প্রশ্ন নং ${details.join("; ")}${extraSuffix}${suffix}`;
