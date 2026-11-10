@@ -1,3 +1,4 @@
+import { MathTitle } from '@/components/ui/MathTitle';
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -832,7 +833,7 @@ export function AcademicAIAssistant() {
                         <span className="rounded bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700 dark:text-indigo-300">{resource.type}</span>
                         <span className="text-[11px] text-slate-500 truncate">{resource.contextLabel}</span>
                       </div>
-                      <p className="mt-1 text-xs font-semibold text-slate-900 dark:text-white">{resource.title}</p>
+                      <MathTitle text={resource.title} className="mt-1 block text-xs font-semibold leading-relaxed text-slate-900 dark:text-white" mathClassName="text-[0.98em]" />
                       <div className="mt-2 flex items-center gap-2">
                         <button type="button" onClick={() => navigateToResource(resource.href)} className="text-xs font-medium text-indigo-600 hover:underline">Open in Platform →</button>
                         {resource.externalUrl && <a href={resource.externalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"><span>Direct Resource</span><ExternalLink className="h-3 w-3" /></a>}
