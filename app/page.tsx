@@ -1,3 +1,4 @@
+import { MathTitle } from '@/components/ui/MathTitle';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma/client';
 import { BookOpen, Video, FileText, ArrowRight, Search, Sparkles } from 'lucide-react';
@@ -128,7 +129,7 @@ export default async function HomePage() {
                   <span className="text-[11px] font-semibold text-indigo-600">
                     {vid.subject.name} • Ch {vid.chapter.chapterNumber}
                   </span>
-                  <h3 className="text-sm font-bold text-slate-900">{vid.title}</h3>
+                  <MathTitle text={vid.title} className="block text-sm font-bold leading-relaxed text-slate-900" mathClassName="text-[0.98em]" />
                 </div>
                 <a
                   href={vid.youtubeUrl}
