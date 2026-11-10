@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BookOpen, Search, Layers, Sparkles } from 'lucide-react';
 import './globals.css';
+import 'katex/dist/katex.min.css';
 import { AcademicAIAssistant } from '@/components/ai/AcademicAIAssistant';
 import MobileStaggeredMenu from '@/components/navigation/MobileStaggeredMenu';
 
