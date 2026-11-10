@@ -5,6 +5,7 @@ import {
   CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
   getLectureNumbersForQuestion,
 } from '@/lib/academic/classical-electrodynamics-question-bank';
+import { STATISTICAL_MECHANICS_QUESTION_BANK } from '@/lib/academic/statistical-mechanics-question-bank';
 
 interface ParsedAcademicQuery {
   language: 'en' | 'bn' | 'mixed';
@@ -88,9 +89,118 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
 
   // Match question-first queries against the supplied Classical Electrodynamics QC list.
   // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
-  const classicalQuestionMatches = await findClassicalElectrodynamicsQuestionMatches(
+  const statisticalMechanicsQuestionMatches = await findAcademicQuestionMatches(
     trimmed,
-    parsed.keywords
+    parsed.keywords,
+    STATISTICAL_MECHANICS_QUESTION_BANK,
+    'PHYS-404'
+  );
+  if (statisticalMechanicsQuestionMatches.length === 1) {
+    const match = statisticalMechanicsQuestionMatches[0];
+    const language = parsed.language || fallbackLang;
+    if (match.video) {
+      const video = match.video;
+      return {
+        answer: language === 'en'
+          ? `I matched your Statistical Mechanics question to chapter ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
+          : language === 'mixed'
+            ? `Statistical Mechanics-er chapter ${match.topic.code}, question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
+            : `পরিসংখ্যান বলবিজ্ঞানের অধ্যায় ${match.topic.code}-এর প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: video.subject.name,
+          chapterNumber: video.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'VIDEO',
+        },
+        resources: [{
+          id: video.id,
+          type: 'YOUTUBE',
+          title: video.title,
+          contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
+          href: `/chapters/${video.chapterId}#video-${video.id}`,
+          externalUrl: video.youtubeUrl,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: `/chapters/${video.chapterId}#video-${video.id}`,
+        },
+        suggestions: [],
+      };
+    }
+
+    if (match.topicRecord) {
+      const topicRecord = match.topicRecord;
+      return {
+        answer: language === 'en'
+          ? `I identified Statistical Mechanics question ${match.question.number}, but no YouTube lecture is linked to it. Opening its chapter topic.`
+          : language === 'mixed'
+            ? `Statistical Mechanics-er question ${match.question.number} identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi.`
+            : `পরিসংখ্যান বলবিজ্ঞানের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।`,
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: topicRecord.chapter.subject.name,
+          chapterNumber: topicRecord.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'INFO',
+        },
+        resources: [{
+          id: topicRecord.id,
+          type: 'TOPIC',
+          title: `${match.topic.code} — ${topicRecord.title}`,
+          contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
+          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+        },
+        suggestions: [],
+      };
+    }
+  } else if (statisticalMechanicsQuestionMatches.length > 1) {
+    const language = parsed.language || fallbackLang;
+    return {
+      answer: language === 'en'
+        ? 'I found more than one closely matching Statistical Mechanics lecture. Choose the exact one below.'
+        : language === 'mixed'
+          ? 'Statistical Mechanics-er ekadhik matching lecture peyechi. Nicher list theke exact lecture-ti select korun.'
+          : 'পরিসংখ্যান বলবিজ্ঞানে একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।',
+      detectedLanguage: language,
+      interpretedIntent: {
+        subjectQuery: 'Statistical Mechanics (পরিসংখ্যান বলবিজ্ঞান)',
+        resourceFilter: 'VIDEO',
+      },
+      resources: statisticalMechanicsQuestionMatches.map((match) => {
+        const video = match.video;
+        return video
+          ? {
+              id: video.id,
+              type: 'YOUTUBE' as const,
+              title: video.title,
+              contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
+              href: `/chapters/${video.chapterId}#video-${video.id}`,
+              externalUrl: video.youtubeUrl,
+            }
+          : {
+              id: match.topicRecord?.id || `stat-404-${match.topic.chapterNumber}`,
+              type: 'TOPIC' as const,
+              title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
+              contextLabel: 'Statistical Mechanics',
+              href: match.topicRecord
+                ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
+                : '/subjects/sub-stat-404',
+            };
+      }),
+      suggestions: [],
+    };
+  }
+
+  const classicalQuestionMatches = await findAcademicQuestionMatches(
+    trimmed,
+    parsed.keywords,
+    CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
+    'PHYS-405'
   );
   if (classicalQuestionMatches.length === 1) {
     const match = classicalQuestionMatches[0];
@@ -372,9 +482,18 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
 }
 
 
-type ClassicalQuestionMatch = {
-  topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
-  question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+type AcademicQuestionTopic = {
+  chapterNumber: number;
+  topicNumber: number;
+  code: string;
+  title: string;
+  lectures: Record<number, string[]>;
+  questions: Array<{ number: string; text: string; aliases: string[] }>;
+};
+
+type AcademicQuestionMatch = {
+  topic: AcademicQuestionTopic;
+  question: AcademicQuestionTopic['questions'][number];
   score: number;
   video: {
     id: string;
@@ -447,19 +566,21 @@ function scoreQuestionText(query: string, candidate: string): number {
   return queryCoverage * 0.82 + candidateCoverage * 0.18;
 }
 
-async function findClassicalElectrodynamicsQuestionMatches(
+async function findAcademicQuestionMatches(
   query: string,
-  keywords: string[]
-): Promise<ClassicalQuestionMatch[]> {
+  keywords: string[],
+  bank: AcademicQuestionTopic[],
+  subjectCode: string
+): Promise<AcademicQuestionMatch[]> {
   const queryVariants = [query, ...keywords].filter(Boolean);
   const scoredQuestions: Array<{
-    topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
-    question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+    topic: AcademicQuestionTopic;
+    question: AcademicQuestionTopic['questions'][number];
     score: number;
     lectureNumbers: number[];
   }> = [];
 
-  for (const topic of CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK) {
+  for (const topic of bank) {
     for (const question of topic.questions) {
       const searchableTexts = [question.text, ...question.aliases];
       let score = 0;
@@ -484,9 +605,9 @@ async function findClassicalElectrodynamicsQuestionMatches(
   const bestScore = scoredQuestions[0].score;
   const selected = scoredQuestions.filter((entry) => entry.score >= Math.max(0.76, bestScore - 0.1));
   const targets = new Map<string, {
-    topic: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number];
+    topic: AcademicQuestionTopic;
     lectureNumber: number | null;
-    question: (typeof CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK)[number]['questions'][number];
+    question: AcademicQuestionTopic['questions'][number];
     score: number;
   }>();
 
@@ -521,7 +642,7 @@ async function findClassicalElectrodynamicsQuestionMatches(
   const videos = videoTargets.length
     ? await prisma.youTubeClass.findMany({
         where: {
-          subject: { code: 'PHYS-405' },
+          subject: { code: subjectCode },
           OR: videoTargets.map((target) => ({
             chapter: { chapterNumber: target.chapterNumber },
             topic: { topicNumber: target.topicNumber },
@@ -536,7 +657,7 @@ async function findClassicalElectrodynamicsQuestionMatches(
       })
     : [];
 
-  const matches: ClassicalQuestionMatch[] = [];
+  const matches: AcademicQuestionMatch[] = [];
   for (const [, target] of targetEntries) {
     if (target.lectureNumber !== null) {
       const video = videos.find((entry) =>
