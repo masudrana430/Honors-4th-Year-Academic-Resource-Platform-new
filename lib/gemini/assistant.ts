@@ -136,7 +136,7 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
             : `প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।`,
         detectedLanguage: language,
         interpretedIntent: {
-          subjectQuery: topicRecord.subject.name,
+          subjectQuery: topicRecord.chapter.subject.name,
           chapterNumber: topicRecord.chapter.chapterNumber,
           topicQuery: match.topic.title,
           resourceFilter: 'INFO',
@@ -145,7 +145,7 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
           id: topicRecord.id,
           type: 'TOPIC',
           title: `${match.topic.code} — ${topicRecord.title}`,
-          contextLabel: `${topicRecord.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
+          contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
           href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
         }],
         navigationTarget: {
@@ -390,8 +390,7 @@ type ClassicalQuestionMatch = {
     id: string;
     title: string;
     chapterId: string;
-    subject: { name: string };
-    chapter: { chapterNumber: number };
+    chapter: { chapterNumber: number; subject: { name: string } };
   } | null;
 };
 
@@ -564,8 +563,12 @@ async function findClassicalElectrodynamicsQuestionMatches(
           topicNumber: target.topic.topicNumber,
         },
         include: {
-          subject: { select: { name: true } },
-          chapter: { select: { chapterNumber: true } },
+          chapter: {
+            select: {
+              chapterNumber: true,
+              subject: { select: { name: true } },
+            },
+          },
         },
       });
       if (topicRecord) {
