@@ -156,3 +156,18 @@
     animation-duration: 1ms !important;
   }
 }
+
+
+/* Inline KaTeX in long, question-rich YouTube titles */
+.math-title-inline {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: baseline;
+}
+
+.math-title-inline .katex {
+  font-size: 0.98em;
+  white-space: nowrap;
+}
