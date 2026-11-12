@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import { drive_v3 } from 'googleapis';
 import { prisma } from '@/lib/prisma/client';
 import { ensureDriveFolderHierarchy, getGoogleDriveClient } from '@/lib/google-drive/driveClient';
+import { requireContributionPassword } from '@/lib/contribution-auth';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +52,12 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = requireContributionPassword(new NextRequest(request.url, {
+    method: request.method,
+    headers: { 'x-content-upload-password': String((await request.clone().formData()).get('uploadPassword') || '') },
+  }));
+  if (authError) return authError;
+
   let uploadedDriveFileId: string | undefined;
 
   try {
