@@ -119,6 +119,18 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
   }
 
 
+  const subjectOnly = isBroadSubjectListRequest(trimmed);
+  if (subjectOnly) {
+    parsed = {
+      ...parsed,
+      keywords: [],
+      subjectQuery: undefined,
+      topicQuery: undefined,
+      chapterNumber: undefined,
+      resourceFilter: 'INFO',
+    };
+  }
+
   // Match question-first queries against the supplied Nuclear Physics-2 QC list.
   // Match question-first queries against the supplied Solid State Physics-2 QC list.
   const solidStatePhysics2QuestionMatches = await findAcademicQuestionMatches(
@@ -811,6 +823,7 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
     subjectQuery: parsed.subjectQuery,
     topicQuery: parsed.topicQuery,
     fileTypeFilter: parsed.fileTypeFilter,
+    subjectOnly,
     chapterNumber: parsed.chapterNumber,
     resourceFilter: parsed.resourceFilter,
   });
@@ -1127,6 +1140,14 @@ async function findChapterNavigationMatches(query: string, keywords: string[], c
   const close = scored.filter((item) => item.score >= Math.max(5, bestScore - 1.5));
   if (close.length === 1 && bestScore >= 7) return [close[0].chapter];
   return close.slice(0, 8).map((item) => item.chapter);
+}
+
+function isBroadSubjectListRequest(query: string): boolean {
+  const normalized = query.toLocaleLowerCase('bn-BD');
+  return /(^|[^a-z])(all|list)([^a-z]|$).*(subject|subjects|course|courses)/.test(normalized) ||
+    /(সব|সকল).*(বিষয়|বিষয়|সাবজেক্ট|কোর্স)/.test(normalized) ||
+    /(বিষয়|বিষয়|সাবজেক্ট|কোর্স).*(সব|সকল)/.test(normalized) ||
+    /(^|[^a-z])(all subjects|all fourth year subjects|all 4th year subjects)([^a-z]|$)/.test(normalized);
 }
 
 function extractFallbackKeywords(query: string): string[] {
