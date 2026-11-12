@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma/client';
 import { buildGoogleDriveUrls } from '@/lib/google-drive/driveClient';
 import PublicNoteDeleteButton from '@/components/notes/PublicNoteDeleteButton';
+import ChapterVideoForm from '@/components/videos/ChapterVideoForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +103,15 @@ export default async function ChapterDetailsPage({
           ))
         )}
       </section>
+
+      <ChapterVideoForm
+        chapterId={chapter.id}
+        topics={chapter.topics.map((topic) => ({
+          id: topic.id,
+          title: topic.title,
+          topicNumber: topic.topicNumber,
+        }))}
+      />
 
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Chapter YouTube Classes</h2>
