@@ -37,6 +37,7 @@ export default function ChapterVideoActions({
   const [duration, setDuration] = useState(video.duration === 'Not specified' ? '' : video.duration);
   const [instructorName, setInstructorName] = useState(video.instructorName || '');
   const [topicId, setTopicId] = useState(video.topicId || '');
+  const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
@@ -53,6 +54,7 @@ export default function ChapterVideoActions({
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'x-content-upload-password': password,
         },
         body: JSON.stringify({
           title,
@@ -68,6 +70,7 @@ export default function ChapterVideoActions({
 
       setMessage('Video details updated successfully.');
       setEditing(false);
+      setPassword('');
       router.refresh();
     } catch (error) {
       setIsError(true);
@@ -85,13 +88,14 @@ export default function ChapterVideoActions({
     try {
       const response = await fetch(`/api/chapters/${chapterId}/videos/${video.id}`, {
         method: 'DELETE',
-        headers: {},
+        headers: { 'x-content-upload-password': password },
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not delete this video.');
 
       setMessage('Video deleted successfully.');
       setConfirmDelete(false);
+      setPassword('');
       router.refresh();
     } catch (error) {
       setIsError(true);
@@ -136,6 +140,19 @@ export default function ChapterVideoActions({
         <div className="rounded-xl border border-red-200 bg-red-50 p-3">
           <p className="text-xs font-semibold text-red-800">Delete this video from the chapter?</p>
           <p className="mt-1 break-words text-[11px] text-red-700">{video.title}</p>
+          <div className="mt-3">
+            <label htmlFor={`delete-video-password-${video.id}`} className="mb-1 block text-[11px] font-semibold text-red-800">Content password *</label>
+            <input
+              id={`delete-video-password-${video.id}`}
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter the shared content password"
+              className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs text-slate-900"
+            />
+          </div>
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -160,6 +177,20 @@ export default function ChapterVideoActions({
       {editing && (
         <form onSubmit={saveChanges} className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
           <p className="text-xs font-bold text-slate-800">Edit video details</p>
+
+          <div>
+            <label htmlFor={`edit-video-password-${video.id}`} className="mb-1 block text-[11px] font-semibold text-slate-700">Content password *</label>
+            <input
+              id={`edit-video-password-${video.id}`}
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter the shared content password"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs"
+            />
+          </div>
 
           <div>
             <label htmlFor={`edit-video-title-${video.id}`} className="mb-1 block text-[11px] font-semibold text-slate-700">Video title *</label>
