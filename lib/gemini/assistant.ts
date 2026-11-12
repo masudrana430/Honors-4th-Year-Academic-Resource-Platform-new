@@ -53,7 +53,7 @@ export async function processAcademicAssistantQuery(
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const systemPrompt = `You are an intent parser for an Honours 4th Year Academic Resource Platform.
+      const systemPrompt = `You are an intent parser for an BraKet (⟨φ|ψ⟩).
 Analyze the student's query (which may be in English, Bangla, or mixed Banglish) and output ONLY valid JSON with this exact shape:
 {
   "language": "en" | "bn" | "mixed",
