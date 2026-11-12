@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
+import { requireContributionPassword } from '@/lib/contribution-auth';
 
 function extractYouTubeVideoId(value: string): string | null {
   try {
@@ -29,6 +30,9 @@ type RouteContext = {
 };
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
+  const passwordError = requireContributionPassword(request);
+  if (passwordError) return passwordError;
+
   try {
     const existing = await prisma.youTubeClass.findFirst({
       where: { id: params.videoId, chapterId: params.id },
@@ -112,6 +116,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const passwordError = requireContributionPassword(request);
+  if (passwordError) return passwordError;
+
   try {
     const video = await prisma.youTubeClass.findFirst({
       where: { id: params.videoId, chapterId: params.id },
