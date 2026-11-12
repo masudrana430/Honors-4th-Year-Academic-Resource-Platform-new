@@ -119,6 +119,9 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
   }
 
 
+  // Keep Latin-script Banglish replies in Banglish even when the model labels them as English.
+  if (fallbackLang === 'mixed') parsed.language = 'mixed';
+
   const subjectOnly = isBroadSubjectListRequest(trimmed);
   if (subjectOnly) {
     parsed = {
@@ -837,16 +840,14 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
     resourceSearch.availableSubjects
   );
 
-  const fallbackSuggestions = [
-    'Show me all fourth-year Physics subjects',
-    'I need Quantum Mechanics video classes',
-    'Show me PDF notes about molecular spectra',
-    'Find the chapter about electromagnetic theory',
-    'আণবিক পদার্থবিজ্ঞানের নোট দেখাও',
-  ];
   const subjectSuggestions = resourceSearch.availableSubjects.slice(0, 5).map((subject) =>
-    parsed.language === 'bn' ? subject + ' এর নোট দেখাও' : 'Show me resources for ' + subject
+    parsed.language === 'bn' ? subject + ' এর নোট দেখাও' : parsed.language === 'mixed' ? subject + ' er notes dekhao' : 'Show me resources for ' + subject
   );
+  const fallbackSuggestions = parsed.language === 'bn'
+    ? ['সব বিষয় দেখাও', 'উপলভ্য PDF নোট দেখাও', 'উপলভ্য ভিডিও ক্লাস দেখাও']
+    : parsed.language === 'mixed'
+      ? ['Shob subject dekhao', 'Available PDF notes dekhao', 'Video class dekhao']
+      : ['Show all Physics subjects', 'Show available PDF notes', 'Find available video classes'];
 
   return {
     answer,
@@ -858,7 +859,7 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
       resourceFilter: parsed.resourceFilter,
     },
     resources,
-    suggestions: resources.length > 0 ? fallbackSuggestions.slice(0, 4) : subjectSuggestions.concat(fallbackSuggestions).slice(0, 6),
+    suggestions: resources.length > 0 ? fallbackSuggestions : subjectSuggestions.concat(fallbackSuggestions).slice(0, 6),
   };
 }
 
