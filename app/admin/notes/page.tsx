@@ -63,11 +63,11 @@ export default function AdminNotesPage() {
       body.set('title', title);
       body.set('summary', summary);
       body.set('author', author);
-      body.set('uploadPassword', uploadPassword);
       body.set('file', file);
 
       const response = await fetch('/api/admin/notes', {
         method: 'POST',
+        headers: { 'x-content-upload-password': uploadPassword },
         body,
       });
       const data = await response.json();
