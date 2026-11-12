@@ -14,6 +14,7 @@ export default function AdminNotesPage() {
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [author, setAuthor] = useState('');
+  const [uploadPassword, setUploadPassword] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -62,6 +63,7 @@ export default function AdminNotesPage() {
       body.set('title', title);
       body.set('summary', summary);
       body.set('author', author);
+      body.set('uploadPassword', uploadPassword);
       body.set('file', file);
 
       const response = await fetch('/api/admin/notes', {
@@ -74,6 +76,7 @@ export default function AdminNotesPage() {
       setTitle('');
       setSummary('');
       setAuthor('');
+      setUploadPassword('');
       setFile(null);
       const input = document.getElementById('note-file') as HTMLInputElement | null;
       if (input) input.value = '';
@@ -128,6 +131,10 @@ export default function AdminNotesPage() {
           <div>
             <label className="mb-1 block text-sm font-semibold text-slate-700">Author (optional)</label>
             <input maxLength={120} value={author} onChange={(event) => setAuthor(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Author or teacher name" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Upload password *</label>
+            <input type="password" autoComplete="current-password" required value={uploadPassword} onChange={(event) => setUploadPassword(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Enter the content upload password" />
           </div>
           <div>
             <label htmlFor="note-file" className="mb-1 block text-sm font-semibold text-slate-700">5. Select PDF or image (maximum 4 MB)</label>
