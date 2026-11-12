@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: 'About Masud Rana | BraKet ⟨φ|ψ⟩',
     description: 'Full-Stack Developer & Product Engineer · Chattogram, Bangladesh.',
     url: '/about',
-    images: [{ url: '/braket-logo.jpg', width: 512, height: 512, alt: 'BraKet logo' }],
+    images: [{ url: '/braket-logo.jpg', width: 256, height: 256, alt: 'BraKet logo' }],
   },
 };
 
