@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { BookOpen, Search, Layers, FileText, UserRound, Sparkles, Github, Linkedin, Instagram, Facebook, Youtube, Mail, Phone } from 'lucide-react';
+import { Search, Layers, FileText, UserRound, Github, Linkedin, Instagram, Facebook, Youtube, Mail, Phone } from 'lucide-react';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 import { AcademicAIAssistant } from '@/components/ai/AcademicAIAssistant';
