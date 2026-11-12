@@ -47,7 +47,7 @@ export const ELECTRONICS_2_QUESTION_BANK: Electronics2TopicQuestionSet[] = [
     chapterNumber: 2, topicNumber: 1, code: "২", title: "স্পন্দক সার্কিট",
     lectures: {
       "1": ["7", "8"],
-      "2": ["4"],
+      "2": ["4", "14"],
       "3": ["10", "9", "3"],
       "4": ["1", "6", "5", "11"],
       "5": ["2"],
@@ -302,8 +302,8 @@ export function buildElectronics2LectureTitle(
     .replace(/\s+/g, " ")
     .trim();
   const label = currentTitle.match(/\|\s*([^|]+)$/)?.[1]?.trim() || bodyWithoutQuestion || topic.title;
-  const preservedNotes = [...extras, ...noteTags].join(", ");
-  const extraSuffix = preservedNotes ? " [" + preservedNotes.replace(/^\[|\]$/g, "") + "]" : "";
+  const preservedNotes = [...extras, ...noteTags.map((note) => note.replace(/^\[|\]$/g, ""))].join(", ");
+  const extraSuffix = preservedNotes ? " [" + preservedNotes + "]" : "";
   return chapterPrefix + " — প্রশ্ন নং " + details.join("; ") + extraSuffix + " | " + label;
 }
 
