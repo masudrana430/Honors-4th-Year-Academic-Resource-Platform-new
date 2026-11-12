@@ -1127,16 +1127,28 @@ async function findChapterNavigationMatches(query: string, keywords: string[], c
 function extractFallbackKeywords(query: string): string[] {
   const stopWords = new Set([
     'show', 'me', 'all', 'fourth', 'year', '4th', 'honors', 'honours', 'find',
-    'the', 'of', 'i', 'need', 'about', 'for', 'this', 'subject', 'chapter',
-    'video', 'videos', 'classes', 'class', 'pdf', 'notes', 'note', 'open',
-    'topic', 'wise', 'and', 'in', 'to', 'a', 'an',
+    'the', 'of', 'i', 'need', 'about', 'for', 'this', 'subject', 'subjects',
+    'chapter', 'chapters', 'video', 'videos', 'youtube', 'classes', 'class',
+    'lecture', 'lectures', 'pdf', 'notes', 'note', 'open', 'topic', 'topics',
+    'wise', 'and', 'in', 'to', 'a', 'an', 'physics', 'please', 'want', 'show',
+    'dekhao', 'dekhaw', 'dekhan', 'dekhte', 'chai', 'lagbe', 'dorkar',
+    'amar', 'amake', 'sob', 'shob', 'shokol', 'er', 'jonno', 'khuje', 'khujte',
+    'dao', 'din', 'koro', 'korun', 'korte', 'ki', 'kivabe',
+    'দেখাও', 'দেখান', 'দেখতে', 'চাই', 'দাও', 'দিন', 'আমাকে', 'আমার',
+    'সকল', 'সব', 'সবগুলো', 'বিষয়', 'বিষয়', 'বিষয়গুলো', 'বিষয়গুলো',
+    'অধ্যায়', 'অধ্যায়', 'চ্যাপ্টার', 'টপিক', 'নোট', 'নোটস', 'ভিডিও',
+    'ক্লাস', 'লেকচার', 'পিডিএফ', 'ফাইল', 'এর', 'জন্য', 'সম্পর্কিত',
+    'দরকার', 'প্রয়োজন', 'প্রয়োজন', 'একটু', 'এবং', 'ও', 'কি', 'কী',
   ]);
   const words = query
-    .toLowerCase()
-    .replace(/[^\w\s\u0980-\u09FF]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 2 && !stopWords.has(w));
-  return words.length > 0 ? words : ['physics'];
+    .toLocaleLowerCase('bn-BD')
+    .normalize('NFKC')
+    .replace(/[ড়ঢ়]/g, 'ড়')
+    .replace(/য়/g, 'য়')
+    .replace(/[^\\w\\s\\u0980-\\u09FF]/g, ' ')
+    .split(/\\s+/)
+    .filter((word) => word.length > 1 && !stopWords.has(word));
+  return Array.from(new Set(words)).slice(0, 10);
 }
 
 function extractChapterNumber(query: string): number | undefined {
@@ -1150,16 +1162,20 @@ function extractChapterNumber(query: string): number | undefined {
 }
 
 function detectResourceFilter(query: string): 'ALL' | 'VIDEO' | 'NOTES' | 'INFO' {
-  const lower = query.toLowerCase();
-  if (lower.includes('video') || lower.includes('youtube') || lower.includes('class') || lower.includes('lecture') || lower.includes('ভিডিও') || lower.includes('ক্লাস')) {
-    return 'VIDEO';
-  }
-  if (lower.includes('pdf') || lower.includes('note') || lower.includes('image') || lower.includes('নোট') || lower.includes('পিডিএফ')) {
-    return 'NOTES';
-  }
+  const lower = query.toLocaleLowerCase('bn-BD');
+  const wantsVideo = /\\b(video|videos|youtube|class|classes|lecture|lectures)\\b/.test(lower) ||
+    /(ভিডিও|ক্লাস|লেকচার|ইউটিউব)/.test(lower) ||
+    /\\b(video class|video classes|class video|lecture video)\\b/.test(lower) ||
+    /\\b(class|lecture|video)\\b/.test(lower) && /\\b(dekhao|dekhaw|chai|lagbe)\\b/.test(lower);
+  const wantsNotes = /\\b(pdf|note|notes|image|images|file|files|handout|document)\\b/.test(lower) ||
+    /(নোট|পিডিএফ|ছবি|ইমেজ|ডকুমেন্ট|হ্যান্ডআউট)/.test(lower) ||
+    /\\b(note|notes|pdf|file)\\b/.test(lower) && /\\b(dekhao|dekhaw|chai|lagbe)\\b/.test(lower);
+
+  if (wantsVideo && wantsNotes) return 'ALL';
+  if (wantsVideo) return 'VIDEO';
+  if (wantsNotes) return 'NOTES';
   return 'ALL';
 }
-
 
 
 type IdentityIntent = 'name' | 'creator' | 'about';
