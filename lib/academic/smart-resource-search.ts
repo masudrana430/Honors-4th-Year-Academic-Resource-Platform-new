@@ -142,6 +142,70 @@ const CONCEPT_ALIASES: Array<{ aliases: string[]; canonical: string[] }> = [
     ],
     canonical: ['Gauss law', 'গসের সূত্র'],
   },
+  {
+    aliases: ['schrodinger equation', 'শ্রোডিঙ্গার সমীকরণ', 'শ্রোডিংগার সমীকরণ', 'schrodinger somikoron'],
+    canonical: ['Schrodinger equation', 'শ্রোডিঙ্গার সমীকরণ'],
+  },
+  {
+    aliases: ['uncertainty principle', 'heisenberg uncertainty', 'অনিশ্চয়তা নীতি', 'অনিশ্চয়তা নীতি', 'হাইজেনবার্গের অনিশ্চয়তা'],
+    canonical: ['Heisenberg uncertainty principle', 'অনিশ্চয়তা নীতি'],
+  },
+  {
+    aliases: ['harmonic oscillator', 'simple harmonic oscillator', 'সরল ছন্দিত স্পন্দক', 'ছন্দিত দোলক'],
+    canonical: ['Quantum harmonic oscillator', 'সরল ছন্দিত স্পন্দক'],
+  },
+  {
+    aliases: ['partition function', 'বণ্টন ফাংশন', 'বিভাজন ফাংশন', 'partition function er'],
+    canonical: ['Partition function', 'বণ্টন ফাংশন'],
+  },
+  {
+    aliases: ['maxwell boltzmann distribution', 'ম্যাক্সওয়েল বোল্টজম্যান', 'ম্যাক্সওয়েল বোল্টজম্যান বণ্টন'],
+    canonical: ['Maxwell Boltzmann distribution'],
+  },
+  {
+    aliases: ['bose einstein statistics', 'bose einstein distribution', 'বোস আইনস্টাইন পরিসংখ্যান'],
+    canonical: ['Bose Einstein statistics', 'Bose Einstein distribution'],
+  },
+  {
+    aliases: ['fermi dirac statistics', 'fermi dirac distribution', 'ফার্মি ডিরাক পরিসংখ্যান'],
+    canonical: ['Fermi Dirac statistics', 'Fermi Dirac distribution'],
+  },
+  {
+    aliases: ['crystal lattice', 'crystal structure', 'স্ফটিক জালক', 'কেলাস গঠন'],
+    canonical: ['Crystal lattice', 'Crystal structure'],
+  },
+  {
+    aliases: ['brillouin zone', 'ব্রিলুয়েন অঞ্চল', 'ব্রিলুয়েন অঞ্চল'],
+    canonical: ['Brillouin zone'],
+  },
+  {
+    aliases: ['energy band', 'band theory', 'শক্তি ব্যান্ড', 'ব্যান্ড তত্ত্ব'],
+    canonical: ['Energy band theory', 'Band theory'],
+  },
+  {
+    aliases: ['semiconductor', 'অর্ধপরিবাহী', 'অর্ধ পরিবাহী'],
+    canonical: ['Semiconductor'],
+  },
+  {
+    aliases: ['deuteron', 'ডিউটেরণ', 'ডিউটেরন'],
+    canonical: ['Deuteron', 'ডিউটেরণ'],
+  },
+  {
+    aliases: ['nuclear force', 'নিউক্লিয় বল', 'নিউক্লিয় বল'],
+    canonical: ['Nuclear force', 'নিউক্লিয় বল'],
+  },
+  {
+    aliases: ['nuclear reaction', 'nuclear reactions', 'নিউক্লিয় বিক্রিয়া', 'নিউক্লীয় বিক্রিয়া'],
+    canonical: ['Nuclear reactions', 'নিউক্লিয় বিক্রিয়া'],
+  },
+  {
+    aliases: ['electromagnetic wave', 'electromagnetic waves', 'তড়িৎচৌম্বক তরঙ্গ', 'তড়িৎ চৌম্বকীয় তরঙ্গ'],
+    canonical: ['Electromagnetic waves', 'তড়িৎচৌম্বক তরঙ্গ'],
+  },
+  {
+    aliases: ['electromagnetic theory', 'classical electromagnetism', 'তড়িৎচুম্বকীয় তত্ত্ব', 'তড়িৎচৌম্বক তত্ত্ব'],
+    canonical: ['Classical Electrodynamics', 'Electromagnetic theory'],
+  },
 ];
 
 function normalizeText(value: string): string {
