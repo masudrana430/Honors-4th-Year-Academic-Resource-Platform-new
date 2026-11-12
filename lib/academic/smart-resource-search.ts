@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma/client';
 import type { AIChatResourceLink } from '@/types';
 
@@ -397,7 +398,7 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
   }
 
   if (input.resourceFilter === 'ALL' || input.resourceFilter === 'NOTES') {
-    const fileWhere = {
+    const fileWhere: Prisma.FileWhereInput = {
       AND: [
         chapterCondition ? { chapter: chapterCondition } : {},
         input.fileTypeFilter === 'PDF' ? { fileType: 'PDF' } : {},
