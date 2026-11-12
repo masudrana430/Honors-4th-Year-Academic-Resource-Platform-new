@@ -15,7 +15,8 @@
     "drive:sync": "tsx scripts/sync-google-drive.ts",
     "render:build": "npm install && npx prisma generate && npx prisma migrate deploy && npm run db:seed && npm run build",
     "db:update-classical-titles": "tsx scripts/update-classical-electrodynamics-titles.ts",
-    "db:update-statistical-mechanics-titles": "tsx scripts/update-statistical-mechanics-titles.ts"
+    "db:update-statistical-mechanics-titles": "tsx scripts/update-statistical-mechanics-titles.ts",
+    "db:update-electronics-2-titles": "tsx scripts/update-electronics-2-titles.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
