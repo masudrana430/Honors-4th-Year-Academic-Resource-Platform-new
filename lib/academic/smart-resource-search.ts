@@ -11,6 +11,7 @@ type SearchInput = {
   topicQuery?: string;
   chapterNumber?: number;
   resourceFilter: AssistantResourceFilter;
+  fileTypeFilter?: 'PDF' | 'IMAGE';
 };
 
 type SearchOutput = {
@@ -396,6 +397,8 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
     const fileWhere = {
       AND: [
         chapterCondition ? { chapter: chapterCondition } : {},
+        input.fileTypeFilter === 'PDF' ? { fileType: 'PDF' } : {},
+        input.fileTypeFilter === 'IMAGE' ? { fileType: { in: ['JPG', 'PNG', 'JPEG', 'WEBP'] } } : {},
         terms.length
           ? {
               OR: terms.flatMap((term) => [
