@@ -116,7 +116,7 @@ export const NUCLEAR_PHYSICS_2_QUESTION_BANK: NuclearPhysics2TopicQuestionSet[] 
   {
     chapterNumber: 6, topicNumber: 1, code: "৬", title: "নিউক্লিয় বিক্রিয়া",
     lectures: {
-      "1": ["1", "2", "3", "4"],
+      "1": ["1", "2", "3", "4", "17"],
       "2": ["5", "6"],
       "3": ["7", "8", "9", "10", "11", "12"],
       "4": ["13", "14", "15"]
