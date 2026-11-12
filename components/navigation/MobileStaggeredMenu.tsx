@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { BookOpen, Search, Layers, FileText, X, Menu } from 'lucide-react';
+import { Search, Layers, FileText, UserRound, X, Menu } from 'lucide-react';
 import './mobile-staggered-menu.css';
 
 const links = [
