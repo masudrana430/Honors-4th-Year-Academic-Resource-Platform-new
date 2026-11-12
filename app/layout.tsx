@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BookOpen, Search, Layers, Sparkles } from 'lucide-react';
+import { BookOpen, Search, Layers, FileText, Sparkles } from 'lucide-react';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 import { AcademicAIAssistant } from '@/components/ai/AcademicAIAssistant';
@@ -40,6 +40,9 @@ export default function RootLayout({
                 <Link href="/" className="hover:text-indigo-600 px-2 py-1">Home</Link>
                 <Link href="/subjects" className="inline-flex items-center gap-1 hover:text-indigo-600 px-2 py-1">
                   <Layers className="h-4 w-4" /><span>Subjects</span>
+                </Link>
+                <Link href="/notes" className="inline-flex items-center gap-1 hover:text-indigo-600 px-2 py-1">
+                  <FileText className="h-4 w-4" /><span>Notes</span>
                 </Link>
                 <Link href="/search" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-700 dark:bg-slate-800 dark:text-slate-200">
                   <Search className="h-3.5 w-3.5" /><span>Global Search</span>
