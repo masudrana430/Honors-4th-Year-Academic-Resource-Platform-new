@@ -1174,8 +1174,8 @@ function extractFallbackKeywords(query: string): string[] {
     .normalize('NFKC')
     .replace(/[ড়ঢ়]/g, 'ড়')
     .replace(/য়/g, 'য়')
-    .replace(/[^\\w\\s\\u0980-\\u09FF]/g, ' ')
-    .split(/\\s+/)
+    .replace(/[^\w\s\u0980-\u09FF]/g, ' ')
+    .split(/\s+/)
     .filter((word) => word.length > 1 && !stopWords.has(word));
   return Array.from(new Set(words)).slice(0, 10);
 }
@@ -1197,7 +1197,7 @@ function extractChapterNumber(query: string): number | undefined {
   for (const [pattern, number] of ordinalMap) {
     if (pattern.test(lower)) return number;
   }
-  const match = lower.match(/(?:chapter|ch\\.?|unit|অধ্যায়|অধ্যায়|চ্যাপ্টার)\\s*(?:no\\.?\\s*)?0*(\\d+)/);
+  const match = lower.match(/(?:chapter|ch\.?|unit|অধ্যায়|অধ্যায়|চ্যাপ্টার)\s*(?:no\.?\s*)?0*(\d+)/);
   return match ? parseInt(match[1], 10) : undefined;
 }
 
