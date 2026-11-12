@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
 import { prisma } from '@/lib/prisma/client';
 
 function extractYouTubeVideoId(value: string): string | null {
@@ -24,25 +23,12 @@ function extractYouTubeVideoId(value: string): string | null {
 }
 
 
-function isVideoManagerAuthorized(request: NextRequest): boolean {
-  const expected = process.env.VIDEO_MANAGEMENT_PASSWORD;
-  const supplied = request.headers.get('x-video-management-password');
-  if (!expected || !supplied) return false;
-
-  const expectedBytes = Buffer.from(expected);
-  const suppliedBytes = Buffer.from(supplied);
-  return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);
-}
 
 type RouteContext = {
   params: { id: string; videoId: string };
 };
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  if (!isVideoManagerAuthorized(request)) {
-    return NextResponse.json({ error: 'A valid video management password is required.' }, { status: 401 });
-  }
-
   try {
     const existing = await prisma.youTubeClass.findFirst({
       where: { id: params.videoId, chapterId: params.id },
@@ -126,10 +112,6 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
-  if (!isVideoManagerAuthorized(request)) {
-    return NextResponse.json({ error: 'A valid video management password is required.' }, { status: 401 });
-  }
-
   try {
     const video = await prisma.youTubeClass.findFirst({
       where: { id: params.videoId, chapterId: params.id },
