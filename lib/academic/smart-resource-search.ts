@@ -12,6 +12,7 @@ type SearchInput = {
   chapterNumber?: number;
   resourceFilter: AssistantResourceFilter;
   fileTypeFilter?: 'PDF' | 'IMAGE';
+  subjectOnly?: boolean;
 };
 
 type SearchOutput = {
@@ -273,6 +274,7 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
       }, relevance);
     }
 
+    if (!input.subjectOnly) {
     const chapterWhere = {
       AND: [
         chapterCondition || {},
@@ -342,7 +344,8 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
         contextLabel: topic.chapter.subject.name + ' • Chapter ' + topic.chapter.chapterNumber,
         href: '/chapters/' + topic.chapterId + '#topic-' + topic.id,
       }, relevance);
-    }
+    }    }
+
   }
 
   if (input.resourceFilter === 'ALL' || input.resourceFilter === 'VIDEO') {
