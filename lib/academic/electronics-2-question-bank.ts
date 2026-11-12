@@ -286,9 +286,10 @@ export function buildElectronics2LectureTitle(
   }).filter((value): value is string => Boolean(value));
 
   const oldQuestionList = currentTitle.match(/প্রশ্ন\s*নং\s*\(([^)]*)\)/)?.[1] || "";
-  const extras = oldQuestionList.split(",").map((value) => value.trim()).filter(
-    (value) => value && !/^[0-9০-৯]+$/.test(value)
-  );
+  const extras = oldQuestionList.split(",").map((value) => value.trim())
+    .filter((value) => value && !/^[0-9০-৯]+$/.test(value))
+    .map((value) => value.replace(/^[0-9০-৯]+\s*\+\s*/, "").trim())
+    .filter(Boolean);
   const noteTags = Array.from(currentTitle.matchAll(/\[[^\]]+\]/g)).map((match) => match[0]);
   const rawPrefix = currentTitle.split(" — ")[0] || "Lec " + lectureNumber;
   const chapterDigits = toBengaliDigits(chapterNumber);
