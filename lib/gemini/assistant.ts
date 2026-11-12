@@ -54,8 +54,13 @@ export async function processAcademicAssistantQuery(
     conversationalIntro: '',
   };
 
+  // Fast path: explicit resource requests and broad subject-list requests already
+  // have deterministic intent; do not spend a Gemini round-trip on them.
+  const deterministicSearch = parsed.resourceFilter !== 'ALL' ||
+    isBroadSubjectListRequest(trimmed) ||
+    (parsed.chapterNumber !== undefined && parsed.keywords.length > 0);
   const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY') {
+  if (!deterministicSearch && apiKey && apiKey !== 'YOUR_GEMINI_API_KEY') {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
@@ -134,688 +139,694 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
     };
   }
 
-  // Match question-first queries against the supplied Nuclear Physics-2 QC list.
-  // Match question-first queries against the supplied Solid State Physics-2 QC list.
-  const solidStatePhysics2QuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    SOLID_STATE_PHYSICS_2_QUESTION_BANK,
-    'PHYS-403'
-  );
-  if (solidStatePhysics2QuestionMatches.length === 1) {
-    const match = solidStatePhysics2QuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? "I matched your Solid State Physics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
-          : language === 'mixed'
-            ? "Solid State Physics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
-            : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? "I identified Solid State Physics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
-          : language === 'mixed'
-            ? "Solid State Physics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
-            : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: match.topic.code + " — " + topicRecord.title,
-          contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (solidStatePhysics2QuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? "I found more than one closely matching Solid State Physics-2 question. Choose the exact lecture below."
-        : language === 'mixed'
-          ? "Solid State Physics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
-          : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: "Solid State Physics-2 (কঠিন অবস্থার পদার্থবিজ্ঞান-২)",
-        resourceFilter: 'VIDEO',
-      },
-      resources: solidStatePhysics2QuestionMatches.map((match) => {
+  // Only run expensive QC-to-lecture matching for actual question/solution requests.
+  // Resource discovery (notes/videos/chapters) skips all six question-bank lookups.
+  if (shouldRunQuestionBankMatch(trimmed) && !subjectOnly) {
+    // Match question-first queries against the supplied Nuclear Physics-2 QC list.
+    // Match question-first queries against the supplied Solid State Physics-2 QC list.
+    const solidStatePhysics2QuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      SOLID_STATE_PHYSICS_2_QUESTION_BANK,
+      'PHYS-403'
+    );
+    if (solidStatePhysics2QuestionMatches.length === 1) {
+      const match = solidStatePhysics2QuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
         const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-              href: "/chapters/" + video.chapterId + "#video-" + video.id,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topicRecord?.id || "solid-state-physics-2-chapter-" + match.topic.chapterNumber,
-              type: 'TOPIC' as const,
-              title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
-              contextLabel: "Solid State Physics-2",
-              href: match.topicRecord
-                ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
-                : "/subjects/sub-solid-403",
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-  // Match question-first queries against the supplied Quantum Mechanics-2 QC list.
-  const quantumMechanics2QuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    QUANTUM_MECHANICS_2_QUESTION_BANK,
-    'PHYS-402'
-  );
-  if (quantumMechanics2QuestionMatches.length === 1) {
-    const match = quantumMechanics2QuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? "I matched your Quantum Mechanics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
-          : language === 'mixed'
-            ? "Quantum Mechanics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
-            : "কোয়ান্টাম মেকানিক্স-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? "I identified Quantum Mechanics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
-          : language === 'mixed'
-            ? "Quantum Mechanics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
-            : "কোয়ান্টাম মেকানিক্স-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: match.topic.code + " — " + topicRecord.title,
-          contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (quantumMechanics2QuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? "I found more than one closely matching Quantum Mechanics-2 question. Choose the exact lecture below."
-        : language === 'mixed'
-          ? "Quantum Mechanics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
-          : "কোয়ান্টাম মেকানিক্স-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: "Quantum Mechanics-2 (কোয়ান্টাম মেকানিক্স-২)",
-        resourceFilter: 'VIDEO',
-      },
-      resources: quantumMechanics2QuestionMatches.map((match) => {
-        const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-              href: "/chapters/" + video.chapterId + "#video-" + video.id,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topicRecord?.id || "quantum-mechanics-2-chapter-" + match.topic.chapterNumber,
-              type: 'TOPIC' as const,
-              title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
-              contextLabel: "Quantum Mechanics-2",
-              href: match.topicRecord
-                ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
-                : "/subjects/sub-qm-402",
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-  const nuclearPhysics2QuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    NUCLEAR_PHYSICS_2_QUESTION_BANK,
-    'PHYS-401'
-  );
-  if (nuclearPhysics2QuestionMatches.length === 1) {
-    const match = nuclearPhysics2QuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? "I matched your Nuclear Physics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
-          : language === 'mixed'
-            ? "Nuclear Physics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
-            : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? "I identified Nuclear Physics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
-          : language === 'mixed'
-            ? "Nuclear Physics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
-            : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: match.topic.code + " — " + topicRecord.title,
-          contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (nuclearPhysics2QuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? "I found more than one closely matching Nuclear Physics-2 question. Choose the exact lecture below."
-        : language === 'mixed'
-          ? "Nuclear Physics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
-          : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: "Nuclear Physics-2 (নিউক্লিয়ার পদার্থবিজ্ঞান-২)",
-        resourceFilter: 'VIDEO',
-      },
-      resources: nuclearPhysics2QuestionMatches.map((match) => {
-        const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-              href: "/chapters/" + video.chapterId + "#video-" + video.id,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topicRecord?.id || "nuclear-physics-2-chapter-" + match.topic.chapterNumber,
-              type: 'TOPIC' as const,
-              title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
-              contextLabel: "Nuclear Physics-2",
-              href: match.topicRecord
-                ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
-                : "/subjects/sub-nuclear-401",
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-
-  // Match question-first queries against the supplied Electronics-2 QC list.
-  // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
-  const electronics2QuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    ELECTRONICS_2_QUESTION_BANK,
-    'PHYS-406'
-  );
-  if (electronics2QuestionMatches.length === 1) {
-    const match = electronics2QuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? "I matched your Electronics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
-          : language === 'mixed'
-            ? "Electronics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
-            : "ইলেকট্রনিক্স-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + video.chapterId + "#video-" + video.id,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? "I identified Electronics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
-          : language === 'mixed'
-            ? "Electronics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
-            : "ইলেকট্রনিক্স-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: match.topic.code + " — " + topicRecord.title,
-          contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (electronics2QuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? "I found more than one closely matching Electronics-2 question. Choose the exact lecture below."
-        : language === 'mixed'
-          ? "Electronics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
-          : "ইলেকট্রনিক্স-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: "Electronics-2 (ইলেকট্রনিক্স-২)",
-        resourceFilter: 'VIDEO',
-      },
-      resources: electronics2QuestionMatches.map((match) => {
-        const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
-              href: "/chapters/" + video.chapterId + "#video-" + video.id,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topicRecord?.id || "electronics-2-chapter-" + match.topic.chapterNumber,
-              type: 'TOPIC' as const,
-              title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
-              contextLabel: "Electronics-2",
-              href: match.topicRecord
-                ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
-                : "/subjects/sub-elec-406",
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-  const statisticalMechanicsQuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    STATISTICAL_MECHANICS_QUESTION_BANK,
-    'PHYS-404'
-  );
-  if (statisticalMechanicsQuestionMatches.length === 1) {
-    const match = statisticalMechanicsQuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? `I matched your Statistical Mechanics question to chapter ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
-          : language === 'mixed'
-            ? `Statistical Mechanics-er chapter ${match.topic.code}, question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
-            : `পরিসংখ্যান বলবিজ্ঞানের অধ্যায় ${match.topic.code}-এর প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
-          href: `/chapters/${video.chapterId}#video-${video.id}`,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: `/chapters/${video.chapterId}#video-${video.id}`,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? `I identified Statistical Mechanics question ${match.question.number}, but no YouTube lecture is linked to it. Opening its chapter topic.`
-          : language === 'mixed'
-            ? `Statistical Mechanics-er question ${match.question.number} identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi.`
-            : `পরিসংখ্যান বলবিজ্ঞানের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।`,
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: `${match.topic.code} — ${topicRecord.title}`,
-          contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
-          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (statisticalMechanicsQuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? 'I found more than one closely matching Statistical Mechanics lecture. Choose the exact one below.'
-        : language === 'mixed'
-          ? 'Statistical Mechanics-er ekadhik matching lecture peyechi. Nicher list theke exact lecture-ti select korun.'
-          : 'পরিসংখ্যান বলবিজ্ঞানে একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।',
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: 'Statistical Mechanics (পরিসংখ্যান বলবিজ্ঞান)',
-        resourceFilter: 'VIDEO',
-      },
-      resources: statisticalMechanicsQuestionMatches.map((match) => {
-        const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
-              href: `/chapters/${video.chapterId}#video-${video.id}`,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topicRecord?.id || `stat-404-${match.topic.chapterNumber}`,
-              type: 'TOPIC' as const,
-              title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
-              contextLabel: 'Statistical Mechanics',
-              href: match.topicRecord
-                ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
-                : '/subjects/sub-stat-404',
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-  const classicalQuestionMatches = await findAcademicQuestionMatches(
-    trimmed,
-    parsed.keywords,
-    CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
-    'PHYS-405'
-  );
-  if (classicalQuestionMatches.length === 1) {
-    const match = classicalQuestionMatches[0];
-    const language = parsed.language || fallbackLang;
-    if (match.video) {
-      const video = match.video;
-      return {
-        answer: language === 'en'
-          ? `I matched your question to ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
-          : language === 'mixed'
-            ? `${match.topic.code} er question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
-            : `${match.topic.code} অধ্যায়ের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: video.subject.name,
-          chapterNumber: video.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'VIDEO',
-        },
-        resources: [{
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
-          href: `/chapters/${video.chapterId}#video-${video.id}`,
-          externalUrl: video.youtubeUrl,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: `/chapters/${video.chapterId}#video-${video.id}`,
-        },
-        suggestions: [],
-      };
-    }
-
-    if (match.topicRecord) {
-      const topicRecord = match.topicRecord;
-      return {
-        answer: language === 'en'
-          ? `I identified question ${match.question.number}, but no YouTube lecture is currently linked to it. Opening its topic.`
-          : language === 'mixed'
-            ? `Question ${match.question.number} identify korechi, kintu ei question-er jonno kono YouTube lecture linked nei. Topic-ti open korchi.`
-            : `প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।`,
-        detectedLanguage: language,
-        interpretedIntent: {
-          subjectQuery: topicRecord.chapter.subject.name,
-          chapterNumber: topicRecord.chapter.chapterNumber,
-          topicQuery: match.topic.title,
-          resourceFilter: 'INFO',
-        },
-        resources: [{
-          id: topicRecord.id,
-          type: 'TOPIC',
-          title: `${match.topic.code} — ${topicRecord.title}`,
-          contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
-          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
-        }],
-        navigationTarget: {
-          type: 'CHAPTER',
-          href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
-        },
-        suggestions: [],
-      };
-    }
-  } else if (classicalQuestionMatches.length > 1) {
-    const language = parsed.language || fallbackLang;
-    return {
-      answer: language === 'en'
-        ? 'I found more than one closely matching question. Choose the exact lecture below.'
-        : language === 'mixed'
-          ? 'Ekadhik question match koreche. Nicher list theke exact lecture-ti select korun.'
-          : 'একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক প্রশ্নের ভিডিও ক্লাস নির্বাচন করুন।',
-      detectedLanguage: language,
-      interpretedIntent: {
-        subjectQuery: 'চিরায়ত তড়িৎগতিবিদ্যা (Classical Electrodynamics)',
-        resourceFilter: 'VIDEO',
-      },
-      resources: classicalQuestionMatches.map((match) => {
-        const video = match.video;
-        return video
-          ? {
-              id: video.id,
-              type: 'YOUTUBE' as const,
-              title: video.title,
-              contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
-              href: `/chapters/${video.chapterId}#video-${video.id}`,
-              externalUrl: video.youtubeUrl,
-            }
-          : {
-              id: match.topic.code,
-              type: 'TOPIC' as const,
-              title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
-              contextLabel: 'চিরায়ত তড়িৎগতিবিদ্যা',
-              href: match.topicRecord
-                ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
-                : '/subjects/sub-ced-405',
-            };
-      }),
-      suggestions: [],
-    };
-  }
-
-  // Resolve explicit navigation requests and chapter-title-only queries before broad resource search.
-  const explicitChapterNavigation = isChapterNavigationRequest(trimmed);
-  const chapterTitleOnlyQuery = !explicitChapterNavigation && isChapterNameOnlyRequest(trimmed);
-  if (explicitChapterNavigation || chapterTitleOnlyQuery) {
-    const matches = await findChapterNavigationMatches(trimmed, parsed.keywords, parsed.chapterNumber);
-    if (matches.length === 1) {
-      const chapter = matches[0];
+        return {
+          answer: language === 'en'
+            ? "I matched your Solid State Physics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
+            : language === 'mixed'
+              ? "Solid State Physics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
+              : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? "I identified Solid State Physics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
+            : language === 'mixed'
+              ? "Solid State Physics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
+              : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: match.topic.code + " — " + topicRecord.title,
+            contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (solidStatePhysics2QuestionMatches.length > 1) {
       const language = parsed.language || fallbackLang;
       return {
-        answer: language === 'en' ? `Opening ${chapter.title}.` : language === 'mixed' ? `${chapter.title} open korchi.` : `${chapter.title} খুলে দিচ্ছি।`,
+        answer: language === 'en'
+          ? "I found more than one closely matching Solid State Physics-2 question. Choose the exact lecture below."
+          : language === 'mixed'
+            ? "Solid State Physics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
+            : "কঠিন অবস্থার পদার্থবিজ্ঞান-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
         detectedLanguage: language,
-        interpretedIntent: { subjectQuery: chapter.subject.name, chapterNumber: chapter.chapterNumber, resourceFilter: 'INFO' },
-        resources: [{ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` }],
-        navigationTarget: { type: 'CHAPTER', href: `/chapters/${chapter.id}` },
+        interpretedIntent: {
+          subjectQuery: "Solid State Physics-2 (কঠিন অবস্থার পদার্থবিজ্ঞান-২)",
+          resourceFilter: 'VIDEO',
+        },
+        resources: solidStatePhysics2QuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+                href: "/chapters/" + video.chapterId + "#video-" + video.id,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topicRecord?.id || "solid-state-physics-2-chapter-" + match.topic.chapterNumber,
+                type: 'TOPIC' as const,
+                title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
+                contextLabel: "Solid State Physics-2",
+                href: match.topicRecord
+                  ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
+                  : "/subjects/sub-solid-403",
+              };
+        }),
         suggestions: [],
       };
     }
-    if (matches.length > 1) {
+  
+    // Match question-first queries against the supplied Quantum Mechanics-2 QC list.
+    const quantumMechanics2QuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      QUANTUM_MECHANICS_2_QUESTION_BANK,
+      'PHYS-402'
+    );
+    if (quantumMechanics2QuestionMatches.length === 1) {
+      const match = quantumMechanics2QuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
+        const video = match.video;
+        return {
+          answer: language === 'en'
+            ? "I matched your Quantum Mechanics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
+            : language === 'mixed'
+              ? "Quantum Mechanics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
+              : "কোয়ান্টাম মেকানিক্স-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? "I identified Quantum Mechanics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
+            : language === 'mixed'
+              ? "Quantum Mechanics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
+              : "কোয়ান্টাম মেকানিক্স-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: match.topic.code + " — " + topicRecord.title,
+            contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (quantumMechanics2QuestionMatches.length > 1) {
+      const language = parsed.language || fallbackLang;
       return {
-        answer: parsed.language === 'en' ? 'I found multiple matching chapters. Please choose the correct one below.' : parsed.language === 'mixed' ? 'Ekadhik matching chapter peyechi. Nicher list theke subject shoho thik chapter-ti select korun.' : 'একাধিক মিল থাকা চ্যাপ্টার পেয়েছি। নিচের তালিকা থেকে Subject-সহ সঠিক Chapter-টি নির্বাচন করুন।',
-        detectedLanguage: parsed.language,
-        interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
-        resources: matches.slice(0, 8).map((chapter) => ({ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` })),
+        answer: language === 'en'
+          ? "I found more than one closely matching Quantum Mechanics-2 question. Choose the exact lecture below."
+          : language === 'mixed'
+            ? "Quantum Mechanics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
+            : "কোয়ান্টাম মেকানিক্স-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: "Quantum Mechanics-2 (কোয়ান্টাম মেকানিক্স-২)",
+          resourceFilter: 'VIDEO',
+        },
+        resources: quantumMechanics2QuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+                href: "/chapters/" + video.chapterId + "#video-" + video.id,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topicRecord?.id || "quantum-mechanics-2-chapter-" + match.topic.chapterNumber,
+                type: 'TOPIC' as const,
+                title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
+                contextLabel: "Quantum Mechanics-2",
+                href: match.topicRecord
+                  ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
+                  : "/subjects/sub-qm-402",
+              };
+        }),
         suggestions: [],
       };
     }
-    if (explicitChapterNavigation) {
+  
+    const nuclearPhysics2QuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      NUCLEAR_PHYSICS_2_QUESTION_BANK,
+      'PHYS-401'
+    );
+    if (nuclearPhysics2QuestionMatches.length === 1) {
+      const match = nuclearPhysics2QuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
+        const video = match.video;
+        return {
+          answer: language === 'en'
+            ? "I matched your Nuclear Physics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
+            : language === 'mixed'
+              ? "Nuclear Physics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
+              : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? "I identified Nuclear Physics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
+            : language === 'mixed'
+              ? "Nuclear Physics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
+              : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: match.topic.code + " — " + topicRecord.title,
+            contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (nuclearPhysics2QuestionMatches.length > 1) {
+      const language = parsed.language || fallbackLang;
       return {
-        answer: parsed.language === 'en' ? 'I could not identify that chapter in the database. Please include its subject name or chapter number.' : parsed.language === 'mixed' ? 'Database-e chapter-ti identify korte parini. Subject-er naam ba chapter number diye abar bolun.' : 'ডাটাবেজে এই নামে নির্দিষ্ট Chapter শনাক্ত করতে পারিনি। Subject-এর নাম অথবা Chapter নম্বরসহ আবার বলুন।',
-        detectedLanguage: parsed.language,
-        interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
-        resources: [], suggestions: [],
+        answer: language === 'en'
+          ? "I found more than one closely matching Nuclear Physics-2 question. Choose the exact lecture below."
+          : language === 'mixed'
+            ? "Nuclear Physics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
+            : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: "Nuclear Physics-2 (নিউক্লিয়ার পদার্থবিজ্ঞান-২)",
+          resourceFilter: 'VIDEO',
+        },
+        resources: nuclearPhysics2QuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+                href: "/chapters/" + video.chapterId + "#video-" + video.id,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topicRecord?.id || "nuclear-physics-2-chapter-" + match.topic.chapterNumber,
+                type: 'TOPIC' as const,
+                title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
+                contextLabel: "Nuclear Physics-2",
+                href: match.topicRecord
+                  ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
+                  : "/subjects/sub-nuclear-401",
+              };
+        }),
+        suggestions: [],
       };
     }
+  
+  
+    // Match question-first queries against the supplied Electronics-2 QC list.
+    // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
+    const electronics2QuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      ELECTRONICS_2_QUESTION_BANK,
+      'PHYS-406'
+    );
+    if (electronics2QuestionMatches.length === 1) {
+      const match = electronics2QuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
+        const video = match.video;
+        return {
+          answer: language === 'en'
+            ? "I matched your Electronics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
+            : language === 'mixed'
+              ? "Electronics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
+              : "ইলেকট্রনিক্স-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + video.chapterId + "#video-" + video.id,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? "I identified Electronics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
+            : language === 'mixed'
+              ? "Electronics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
+              : "ইলেকট্রনিক্স-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: match.topic.code + " — " + topicRecord.title,
+            contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (electronics2QuestionMatches.length > 1) {
+      const language = parsed.language || fallbackLang;
+      return {
+        answer: language === 'en'
+          ? "I found more than one closely matching Electronics-2 question. Choose the exact lecture below."
+          : language === 'mixed'
+            ? "Electronics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
+            : "ইলেকট্রনিক্স-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: "Electronics-2 (ইলেকট্রনিক্স-২)",
+          resourceFilter: 'VIDEO',
+        },
+        resources: electronics2QuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+                href: "/chapters/" + video.chapterId + "#video-" + video.id,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topicRecord?.id || "electronics-2-chapter-" + match.topic.chapterNumber,
+                type: 'TOPIC' as const,
+                title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
+                contextLabel: "Electronics-2",
+                href: match.topicRecord
+                  ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
+                  : "/subjects/sub-elec-406",
+              };
+        }),
+        suggestions: [],
+      };
+    }
+  
+    const statisticalMechanicsQuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      STATISTICAL_MECHANICS_QUESTION_BANK,
+      'PHYS-404'
+    );
+    if (statisticalMechanicsQuestionMatches.length === 1) {
+      const match = statisticalMechanicsQuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
+        const video = match.video;
+        return {
+          answer: language === 'en'
+            ? `I matched your Statistical Mechanics question to chapter ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
+            : language === 'mixed'
+              ? `Statistical Mechanics-er chapter ${match.topic.code}, question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
+              : `পরিসংখ্যান বলবিজ্ঞানের অধ্যায় ${match.topic.code}-এর প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
+            href: `/chapters/${video.chapterId}#video-${video.id}`,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: `/chapters/${video.chapterId}#video-${video.id}`,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? `I identified Statistical Mechanics question ${match.question.number}, but no YouTube lecture is linked to it. Opening its chapter topic.`
+            : language === 'mixed'
+              ? `Statistical Mechanics-er question ${match.question.number} identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi.`
+              : `পরিসংখ্যান বলবিজ্ঞানের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।`,
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: `${match.topic.code} — ${topicRecord.title}`,
+            contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
+            href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (statisticalMechanicsQuestionMatches.length > 1) {
+      const language = parsed.language || fallbackLang;
+      return {
+        answer: language === 'en'
+          ? 'I found more than one closely matching Statistical Mechanics lecture. Choose the exact one below.'
+          : language === 'mixed'
+            ? 'Statistical Mechanics-er ekadhik matching lecture peyechi. Nicher list theke exact lecture-ti select korun.'
+            : 'পরিসংখ্যান বলবিজ্ঞানে একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।',
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: 'Statistical Mechanics (পরিসংখ্যান বলবিজ্ঞান)',
+          resourceFilter: 'VIDEO',
+        },
+        resources: statisticalMechanicsQuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: `${video.subject.name} • Chapter ${match.topic.code} • Lec ${video.lectureNumber}`,
+                href: `/chapters/${video.chapterId}#video-${video.id}`,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topicRecord?.id || `stat-404-${match.topic.chapterNumber}`,
+                type: 'TOPIC' as const,
+                title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
+                contextLabel: 'Statistical Mechanics',
+                href: match.topicRecord
+                  ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
+                  : '/subjects/sub-stat-404',
+              };
+        }),
+        suggestions: [],
+      };
+    }
+  
+    const classicalQuestionMatches = await findAcademicQuestionMatches(
+      trimmed,
+      parsed.keywords,
+      CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
+      'PHYS-405'
+    );
+    if (classicalQuestionMatches.length === 1) {
+      const match = classicalQuestionMatches[0];
+      const language = parsed.language || fallbackLang;
+      if (match.video) {
+        const video = match.video;
+        return {
+          answer: language === 'en'
+            ? `I matched your question to ${match.topic.code}, question ${match.question.number}. Opening the exact lecture.`
+            : language === 'mixed'
+              ? `${match.topic.code} er question ${match.question.number} match korechi. Exact lecture-ti open korchi.`
+              : `${match.topic.code} অধ্যায়ের প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।`,
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: video.subject.name,
+            chapterNumber: video.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'VIDEO',
+          },
+          resources: [{
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
+            href: `/chapters/${video.chapterId}#video-${video.id}`,
+            externalUrl: video.youtubeUrl,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: `/chapters/${video.chapterId}#video-${video.id}`,
+          },
+          suggestions: [],
+        };
+      }
+  
+      if (match.topicRecord) {
+        const topicRecord = match.topicRecord;
+        return {
+          answer: language === 'en'
+            ? `I identified question ${match.question.number}, but no YouTube lecture is currently linked to it. Opening its topic.`
+            : language === 'mixed'
+              ? `Question ${match.question.number} identify korechi, kintu ei question-er jonno kono YouTube lecture linked nei. Topic-ti open korchi.`
+              : `প্রশ্ন নং ${toBengaliQuestionNumber(match.question.number)} শনাক্ত করেছি, তবে এই প্রশ্নের জন্য বর্তমানে কোনো YouTube ক্লাস যুক্ত নেই। সংশ্লিষ্ট Topic খুলে দিচ্ছি।`,
+          detectedLanguage: language,
+          interpretedIntent: {
+            subjectQuery: topicRecord.chapter.subject.name,
+            chapterNumber: topicRecord.chapter.chapterNumber,
+            topicQuery: match.topic.title,
+            resourceFilter: 'INFO',
+          },
+          resources: [{
+            id: topicRecord.id,
+            type: 'TOPIC',
+            title: `${match.topic.code} — ${topicRecord.title}`,
+            contextLabel: `${topicRecord.chapter.subject.name} • Chapter ${topicRecord.chapter.chapterNumber}`,
+            href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+          }],
+          navigationTarget: {
+            type: 'CHAPTER',
+            href: `/chapters/${topicRecord.chapterId}#topic-${topicRecord.id}`,
+          },
+          suggestions: [],
+        };
+      }
+    } else if (classicalQuestionMatches.length > 1) {
+      const language = parsed.language || fallbackLang;
+      return {
+        answer: language === 'en'
+          ? 'I found more than one closely matching question. Choose the exact lecture below.'
+          : language === 'mixed'
+            ? 'Ekadhik question match koreche. Nicher list theke exact lecture-ti select korun.'
+            : 'একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক প্রশ্নের ভিডিও ক্লাস নির্বাচন করুন।',
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: 'চিরায়ত তড়িৎগতিবিদ্যা (Classical Electrodynamics)',
+          resourceFilter: 'VIDEO',
+        },
+        resources: classicalQuestionMatches.map((match) => {
+          const video = match.video;
+          return video
+            ? {
+                id: video.id,
+                type: 'YOUTUBE' as const,
+                title: video.title,
+                contextLabel: `${video.subject.name} • ${match.topic.code} • Lec ${video.lectureNumber}`,
+                href: `/chapters/${video.chapterId}#video-${video.id}`,
+                externalUrl: video.youtubeUrl,
+              }
+            : {
+                id: match.topic.code,
+                type: 'TOPIC' as const,
+                title: `${match.topic.code} — ${match.topic.title} (প্রশ্ন ${toBengaliQuestionNumber(match.question.number)})`,
+                contextLabel: 'চিরায়ত তড়িৎগতিবিদ্যা',
+                href: match.topicRecord
+                  ? `/chapters/${match.topicRecord.chapterId}#topic-${match.topicRecord.id}`
+                  : '/subjects/sub-ced-405',
+              };
+        }),
+        suggestions: [],
+      };
+    }
+  
+    // Resolve explicit navigation requests and chapter-title-only queries before broad resource search.
+    const explicitChapterNavigation = isChapterNavigationRequest(trimmed);
+    const chapterTitleOnlyQuery = !explicitChapterNavigation && isChapterNameOnlyRequest(trimmed);
+    if (explicitChapterNavigation || chapterTitleOnlyQuery) {
+      const matches = await findChapterNavigationMatches(trimmed, parsed.keywords, parsed.chapterNumber);
+      if (matches.length === 1) {
+        const chapter = matches[0];
+        const language = parsed.language || fallbackLang;
+        return {
+          answer: language === 'en' ? `Opening ${chapter.title}.` : language === 'mixed' ? `${chapter.title} open korchi.` : `${chapter.title} খুলে দিচ্ছি।`,
+          detectedLanguage: language,
+          interpretedIntent: { subjectQuery: chapter.subject.name, chapterNumber: chapter.chapterNumber, resourceFilter: 'INFO' },
+          resources: [{ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` }],
+          navigationTarget: { type: 'CHAPTER', href: `/chapters/${chapter.id}` },
+          suggestions: [],
+        };
+      }
+      if (matches.length > 1) {
+        return {
+          answer: parsed.language === 'en' ? 'I found multiple matching chapters. Please choose the correct one below.' : parsed.language === 'mixed' ? 'Ekadhik matching chapter peyechi. Nicher list theke subject shoho thik chapter-ti select korun.' : 'একাধিক মিল থাকা চ্যাপ্টার পেয়েছি। নিচের তালিকা থেকে Subject-সহ সঠিক Chapter-টি নির্বাচন করুন।',
+          detectedLanguage: parsed.language,
+          interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
+          resources: matches.slice(0, 8).map((chapter) => ({ id: chapter.id, type: 'CHAPTER', title: chapter.title, contextLabel: chapter.subject.name, href: `/chapters/${chapter.id}` })),
+          suggestions: [],
+        };
+      }
+      if (explicitChapterNavigation) {
+        return {
+          answer: parsed.language === 'en' ? 'I could not identify that chapter in the database. Please include its subject name or chapter number.' : parsed.language === 'mixed' ? 'Database-e chapter-ti identify korte parini. Subject-er naam ba chapter number diye abar bolun.' : 'ডাটাবেজে এই নামে নির্দিষ্ট Chapter শনাক্ত করতে পারিনি। Subject-এর নাম অথবা Chapter নম্বরসহ আবার বলুন।',
+          detectedLanguage: parsed.language,
+          interpretedIntent: { subjectQuery: parsed.keywords.join(', '), chapterNumber: parsed.chapterNumber, resourceFilter: 'INFO' },
+          resources: [], suggestions: [],
+        };
+      }
+    }
+  
+  
   }
 
   // Broad multilingual retrieval across the real PostgreSQL curriculum and resources.
@@ -1143,6 +1154,13 @@ async function findChapterNavigationMatches(query: string, keywords: string[], c
   const close = scored.filter((item) => item.score >= Math.max(5, bestScore - 1.5));
   if (close.length === 1 && bestScore >= 7) return [close[0].chapter];
   return close.slice(0, 8).map((item) => item.chapter);
+}
+
+function shouldRunQuestionBankMatch(query: string): boolean {
+  const lower = query.toLocaleLowerCase('bn-BD');
+  return /(^|[^a-z])(solve|solution|answer|explain|derive|prove|proof|calculate|determine|what is|why|how)([^a-z]|$)/.test(lower) ||
+    /(সমাধান|উত্তর|ব্যাখ্যা|প্রমাণ কর|নির্ণয় কর|নির্ণয় কর|কেন|কিভাবে|কীভাবে|মান নির্ণয়)/.test(lower) ||
+    /(^|[^a-z])(question|q\\.?\\s*\\d+)([^a-z]|$)/.test(lower);
 }
 
 function isBroadSubjectListRequest(query: string): boolean {
