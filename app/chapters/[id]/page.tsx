@@ -16,7 +16,7 @@ export default async function ChapterDetailsPage({
     where: { id: params.id },
     include: {
       subject: true,
-      youtubeClasses: { orderBy: { lectureNumber: 'asc' } },
+      youtubeClasses: { orderBy: { lectureNumber: 'asc' }, include: { topic: true } },
       topics: {
         orderBy: { topicNumber: 'asc' },
         include: {
@@ -137,6 +137,12 @@ export default async function ChapterDetailsPage({
                 <div className="p-4">
                   <MathTitle text={vid.title} className="block break-words text-sm font-bold leading-relaxed text-slate-900" mathClassName="text-[0.98em]" />
                   <p className="mt-1 text-xs text-slate-600 line-clamp-2">{vid.shortDescription}</p>
+                  {vid.instructorName && (
+                    <p className="mt-2 text-[11px] font-medium text-slate-500">Instructor / Channel: {vid.instructorName}</p>
+                  )}
+                  {vid.topic && (
+                    <p className="mt-1 text-[11px] text-indigo-600">Topic {vid.topic.topicNumber}: {vid.topic.title}</p>
+                  )}
                   <a
                     href={vid.youtubeUrl}
                     target="_blank"
