@@ -27,7 +27,7 @@ export const QUANTUM_MECHANICS_2_QUESTION_BANK: QuantumMechanics2TopicQuestionSe
       "3": ["12"],
       "4": ["6", "7", "11"],
       "5": ["3"],
-      "6": ["10"],
+      "6": ["10", "16"],
       "7": ["15", "14"],
       "8": ["13"]
     },
