@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { BookOpen, Search, Layers, X, Menu } from 'lucide-react';
+import { BookOpen, Search, Layers, FileText, X, Menu } from 'lucide-react';
 import './mobile-staggered-menu.css';
 
 const links = [
   { href: '/', label: 'Home' },
   { href: '/subjects', label: 'Subjects' },
+  { href: '/notes', label: 'Notes' },
   { href: '/search', label: 'Global Search' },
 ];
 
@@ -59,7 +60,7 @@ export default function MobileStaggeredMenu() {
               <Link href={item.href} onClick={close}>
                 <span className="honors-mobile-nav__number">{String(index + 1).padStart(2, '0')}</span>
                 <span>{item.label}</span>
-                {item.href === '/subjects' ? <Layers size={19} /> : item.href === '/search' ? <Search size={19} /> : null}
+                {item.href === '/subjects' ? <Layers size={19} /> : item.href === '/notes' ? <FileText size={19} /> : item.href === '/search' ? <Search size={19} /> : null}
               </Link>
             </li>
           ))}
