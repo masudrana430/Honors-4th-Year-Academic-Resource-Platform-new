@@ -52,10 +52,7 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = requireContributionPassword(new NextRequest(request.url, {
-    method: request.method,
-    headers: { 'x-content-upload-password': String((await request.clone().formData()).get('uploadPassword') || '') },
-  }));
+  const authError = requireContributionPassword(request);
   if (authError) return authError;
 
   let uploadedDriveFileId: string | undefined;
