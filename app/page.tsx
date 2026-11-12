@@ -38,10 +38,10 @@ export default async function HomePage() {
             <span>Public Academic Portal • No Login Required</span>
           </span>
           <h1 className="mt-4 text-3xl sm:text-5xl font-extrabold tracking-tight">
-            Honors 4th Year Academic Resource Platform
+            BraKet ⟨φ|ψ⟩
           </h1>
           <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-300">
-            Find subject-wise and chapter-wise YouTube classes, topic-wise Google Drive PDF & image notes, and instant answers via our bilingual Gemini AI & Voice Search assistant.
+            Find subject-wise and chapter-wise YouTube classes, topic-wise Google Drive PDF & image notes, and instant answers from Campus Assistant in Bangla, English, or Banglish.
           </p>
           <form action="/search" method="GET" className="mt-6 flex flex-col sm:flex-row gap-2 max-w-2xl">
             <div className="relative flex-1">
@@ -70,8 +70,8 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">All Honors 4th Year Subjects</h2>
-            <p className="text-xs text-slate-500">Data-driven PostgreSQL records (Sample data until official list is provided)</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Explore BraKet Subjects</h2>
+            <p className="text-xs text-slate-500">Browse the complete Physics curriculum and shared learning resources.</p>
           </div>
           <Link href="/subjects" className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600">
             <span>View All</span>
