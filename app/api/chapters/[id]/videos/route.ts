@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
+import { requireContributionPassword } from '@/lib/contribution-auth';
 
 function extractYouTubeVideoId(value: string): string | null {
   try {
@@ -46,6 +47,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const authError = requireContributionPassword(request);
+  if (authError) return authError;
+
   try {
     let body: Record<string, unknown>;
     try {
