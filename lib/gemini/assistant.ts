@@ -17,6 +17,7 @@ interface ParsedAcademicQuery {
   keywords: string[];
   subjectQuery?: string;
   topicQuery?: string;
+  fileTypeFilter?: 'PDF' | 'IMAGE';
   chapterNumber?: number;
   resourceFilter: 'ALL' | 'VIDEO' | 'NOTES' | 'INFO';
   conversationalIntro: string;
@@ -47,6 +48,7 @@ export async function processAcademicAssistantQuery(
     keywords: extractFallbackKeywords(trimmed),
     subjectQuery: undefined,
     topicQuery: undefined,
+    fileTypeFilter: detectFileTypeFilter(trimmed),
     chapterNumber: extractChapterNumber(trimmed),
     resourceFilter: detectResourceFilter(trimmed),
     conversationalIntro: '',
@@ -68,6 +70,7 @@ Return ONLY valid JSON with exactly these fields:
   "keywords": ["specific subject, chapter, or concept search phrase", "useful English or Bangla synonym"],
   "subjectQuery": "canonical subject name or null",
   "topicQuery": "specific concept/topic name or null",
+  "fileTypeFilter": "PDF" | "IMAGE" | null,
   "chapterNumber": number | null,
   "resourceFilter": "ALL" | "VIDEO" | "NOTES" | "INFO",
   "conversationalIntro": "one short sentence in the same language/script as the student"
@@ -97,6 +100,7 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
               : parsed.keywords,
           subjectQuery: typeof aiJson.subjectQuery === 'string' ? aiJson.subjectQuery.slice(0, 120) : undefined,
           topicQuery: typeof aiJson.topicQuery === 'string' ? aiJson.topicQuery.slice(0, 160) : undefined,
+          fileTypeFilter: detectFileTypeFilter(trimmed) || (aiJson.fileTypeFilter === 'PDF' || aiJson.fileTypeFilter === 'IMAGE' ? aiJson.fileTypeFilter : undefined),
           chapterNumber:
             typeof aiJson.chapterNumber === 'number'
               ? aiJson.chapterNumber
@@ -806,6 +810,7 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
     keywords: parsed.keywords,
     subjectQuery: parsed.subjectQuery,
     topicQuery: parsed.topicQuery,
+    fileTypeFilter: parsed.fileTypeFilter,
     chapterNumber: parsed.chapterNumber,
     resourceFilter: parsed.resourceFilter,
   });
@@ -1159,6 +1164,13 @@ function extractChapterNumber(query: string): number | undefined {
   if (lower.includes('fourth chapter') || lower.includes('chapter 4') || lower.includes('chapter four') || lower.includes('চতুর্থ অধ্যায়')) return 4;
   const match = lower.match(/chapter\s*0?(\d+)/);
   return match ? parseInt(match[1], 10) : undefined;
+}
+
+function detectFileTypeFilter(query: string): 'PDF' | 'IMAGE' | undefined {
+  const lower = query.toLocaleLowerCase('bn-BD');
+  if (/(^|[^a-z])pdf([^a-z]|$)/.test(lower) || /পিডিএফ/.test(lower)) return 'PDF';
+  if (/(^|[^a-z])(image|images|jpg|jpeg|png|webp|photo|picture)([^a-z]|$)/.test(lower) || /(ছবি|ইমেজ|চিত্র)/.test(lower)) return 'IMAGE';
+  return undefined;
 }
 
 function detectResourceFilter(query: string): 'ALL' | 'VIDEO' | 'NOTES' | 'INFO' {
