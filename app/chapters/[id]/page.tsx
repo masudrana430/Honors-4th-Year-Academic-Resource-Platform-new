@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma/client';
 import { buildGoogleDriveUrls } from '@/lib/google-drive/driveClient';
 import PublicNoteDeleteButton from '@/components/notes/PublicNoteDeleteButton';
 import ChapterVideoForm from '@/components/videos/ChapterVideoForm';
+import ChapterVideoActions from '@/components/videos/ChapterVideoActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -151,6 +152,23 @@ export default async function ChapterDetailsPage({
                   >
                     Watch on YouTube
                   </a>
+                  <ChapterVideoActions
+                    chapterId={chapter.id}
+                    video={{
+                      id: vid.id,
+                      title: vid.title,
+                      youtubeUrl: vid.youtubeUrl,
+                      shortDescription: vid.shortDescription,
+                      duration: vid.duration,
+                      instructorName: vid.instructorName,
+                      topicId: vid.topicId,
+                    }}
+                    topics={chapter.topics.map((topic) => ({
+                      id: topic.id,
+                      title: topic.title,
+                      topicNumber: topic.topicNumber,
+                    }))}
+                  />
                 </div>
               </div>
             ))}
