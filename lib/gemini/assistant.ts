@@ -58,7 +58,7 @@ export async function processAcademicAssistantQuery(
   if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY') {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
 
       const systemPrompt = `You are a multilingual academic search-intent parser for BraKet (⟨φ|ψ⟩), a Physics study-resource library.
 
@@ -953,6 +953,8 @@ async function findAcademicQuestionMatches(
   bank: AcademicQuestionTopic[],
   subjectCode: string
 ): Promise<AcademicQuestionMatch[]> {
+  // A request explicitly asking for notes must stay in the note/file retrieval path.
+  if (detectResourceFilter(query) === 'NOTES') return [];
   const queryVariants = [query, ...keywords].filter(Boolean);
   const scoredQuestions: Array<{
     topic: AcademicQuestionTopic;
@@ -1179,12 +1181,23 @@ function extractFallbackKeywords(query: string): string[] {
 }
 
 function extractChapterNumber(query: string): number | undefined {
-  const lower = query.toLowerCase();
-  if (lower.includes('first chapter') || lower.includes('chapter 1') || lower.includes('chapter one') || lower.includes('প্রথম অধ্যায়')) return 1;
-  if (lower.includes('second chapter') || lower.includes('chapter 2') || lower.includes('chapter two') || lower.includes('দ্বিতীয় অধ্যায়')) return 2;
-  if (lower.includes('third chapter') || lower.includes('chapter 3') || lower.includes('chapter three') || lower.includes('তৃতীয় অধ্যায়')) return 3;
-  if (lower.includes('fourth chapter') || lower.includes('chapter 4') || lower.includes('chapter four') || lower.includes('চতুর্থ অধ্যায়')) return 4;
-  const match = lower.match(/chapter\s*0?(\d+)/);
+  const lower = query.toLocaleLowerCase('bn-BD').replace(/[০-৯]/g, (digit) => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)));
+  const ordinalMap: Array<[RegExp, number]> = [
+    [/(first chapter|chapter one|প্রথম অধ্যায়|প্রথম অধ্যায়|prothom oddhay)/, 1],
+    [/(second chapter|chapter two|দ্বিতীয় অধ্যায়|দ্বিতীয় অধ্যায়|ditiyo oddhay)/, 2],
+    [/(third chapter|chapter three|তৃতীয় অধ্যায়|তৃতীয় অধ্যায়|tritiyo oddhay)/, 3],
+    [/(fourth chapter|chapter four|চতুর্থ অধ্যায়|চতুর্থ অধ্যায়|choturtho oddhay)/, 4],
+    [/(fifth chapter|chapter five|পঞ্চম অধ্যায়|পঞ্চম অধ্যায়|ponchom oddhay)/, 5],
+    [/(sixth chapter|chapter six|ষষ্ঠ অধ্যায়|ষষ্ঠ অধ্যায়|shostho oddhay)/, 6],
+    [/(seventh chapter|chapter seven|সপ্তম অধ্যায়|সপ্তম অধ্যায়|shoptom oddhay)/, 7],
+    [/(eighth chapter|chapter eight|অষ্টম অধ্যায়|অষ্টম অধ্যায়|ostom oddhay)/, 8],
+    [/(ninth chapter|chapter nine|নবম অধ্যায়|নবম অধ্যায়|nobom oddhay)/, 9],
+    [/(tenth chapter|chapter ten|দশম অধ্যায়|দশম অধ্যায়|doshom oddhay)/, 10],
+  ];
+  for (const [pattern, number] of ordinalMap) {
+    if (pattern.test(lower)) return number;
+  }
+  const match = lower.match(/(?:chapter|ch\\.?|unit|অধ্যায়|অধ্যায়|চ্যাপ্টার)\\s*(?:no\\.?\\s*)?0*(\\d+)/);
   return match ? parseInt(match[1], 10) : undefined;
 }
 
