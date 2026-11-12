@@ -6,6 +6,7 @@ import {
   getLectureNumbersForQuestion,
 } from '@/lib/academic/classical-electrodynamics-question-bank';
 import { STATISTICAL_MECHANICS_QUESTION_BANK } from '@/lib/academic/statistical-mechanics-question-bank';
+import { NUCLEAR_PHYSICS_2_QUESTION_BANK } from '@/lib/academic/nuclear-physics-2-question-bank';
 import { ELECTRONICS_2_QUESTION_BANK } from '@/lib/academic/electronics-2-question-bank';
 
 interface ParsedAcademicQuery {
@@ -88,7 +89,114 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
   }
 
 
-  // Match question-first queries against the supplied Classical Electrodynamics QC list.
+  // Match question-first queries against the supplied Classical Electrodynamics QC l  const nuclearPhysics2QuestionMatches = await findAcademicQuestionMatches(
+    trimmed,
+    parsed.keywords,
+    NUCLEAR_PHYSICS_2_QUESTION_BANK,
+    'PHYS-401'
+  );
+  if (nuclearPhysics2QuestionMatches.length === 1) {
+    const match = nuclearPhysics2QuestionMatches[0];
+    const language = parsed.language || fallbackLang;
+    if (match.video) {
+      const video = match.video;
+      return {
+        answer: language === 'en'
+          ? "I matched your Nuclear Physics-2 question to chapter " + match.topic.code + ", question " + match.question.number + ". Opening the exact lecture."
+          : language === 'mixed'
+            ? "Nuclear Physics-2 er chapter " + match.topic.code + ", question " + match.question.number + " match korechi. Exact lecture-ti open korchi."
+            : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর অধ্যায় " + match.topic.code + "-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি। সংশ্লিষ্ট ভিডিও ক্লাসটি খুলে দিচ্ছি।",
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: video.subject.name,
+          chapterNumber: video.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'VIDEO',
+        },
+        resources: [{
+          id: video.id,
+          type: 'YOUTUBE',
+          title: video.title,
+          contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+          href: "/chapters/" + video.chapterId + "#video-" + video.id,
+          externalUrl: video.youtubeUrl,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: "/chapters/" + video.chapterId + "#video-" + video.id,
+        },
+        suggestions: [],
+      };
+    }
+
+    if (match.topicRecord) {
+      const topicRecord = match.topicRecord;
+      return {
+        answer: language === 'en'
+          ? "I identified Nuclear Physics-2 question " + match.question.number + ", but no YouTube lecture is linked to it. Opening its chapter topic."
+          : language === 'mixed'
+            ? "Nuclear Physics-2 er question " + match.question.number + " identify korechi, kintu ei question-er jonno kono video linked nei. Topic-ti open korchi."
+            : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এর প্রশ্ন নং " + toBengaliQuestionNumber(match.question.number) + " শনাক্ত করেছি, তবে এই প্রশ্নের জন্য কোনো নির্দিষ্ট ভিডিও যুক্ত নেই। সংশ্লিষ্ট অধ্যায়ের Topic খুলে দিচ্ছি।",
+        detectedLanguage: language,
+        interpretedIntent: {
+          subjectQuery: topicRecord.chapter.subject.name,
+          chapterNumber: topicRecord.chapter.chapterNumber,
+          topicQuery: match.topic.title,
+          resourceFilter: 'INFO',
+        },
+        resources: [{
+          id: topicRecord.id,
+          type: 'TOPIC',
+          title: match.topic.code + " — " + topicRecord.title,
+          contextLabel: topicRecord.chapter.subject.name + " • Chapter " + topicRecord.chapter.chapterNumber,
+          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+        }],
+        navigationTarget: {
+          type: 'CHAPTER',
+          href: "/chapters/" + topicRecord.chapterId + "#topic-" + topicRecord.id,
+        },
+        suggestions: [],
+      };
+    }
+  } else if (nuclearPhysics2QuestionMatches.length > 1) {
+    const language = parsed.language || fallbackLang;
+    return {
+      answer: language === 'en'
+        ? "I found more than one closely matching Nuclear Physics-2 question. Choose the exact lecture below."
+        : language === 'mixed'
+          ? "Nuclear Physics-2 er ekadhik matching question peyechi. Nicher list theke exact lecture-ti select korun."
+          : "নিউক্লিয়ার পদার্থবিজ্ঞান-২-এ একাধিক কাছাকাছি প্রশ্নের মিল পেয়েছি। নিচের তালিকা থেকে সঠিক অধ্যায় ও ভিডিও ক্লাস নির্বাচন করুন।",
+      detectedLanguage: language,
+      interpretedIntent: {
+        subjectQuery: "Nuclear Physics-2 (নিউক্লিয়ার পদার্থবিজ্ঞান-২)",
+        resourceFilter: 'VIDEO',
+      },
+      resources: nuclearPhysics2QuestionMatches.map((match) => {
+        const video = match.video;
+        return video
+          ? {
+              id: video.id,
+              type: 'YOUTUBE' as const,
+              title: video.title,
+              contextLabel: video.subject.name + " • Chapter " + match.topic.code + " • Lec " + video.lectureNumber,
+              href: "/chapters/" + video.chapterId + "#video-" + video.id,
+              externalUrl: video.youtubeUrl,
+            }
+          : {
+              id: match.topicRecord?.id || "nuclear-physics-2-chapter-" + match.topic.chapterNumber,
+              type: 'TOPIC' as const,
+              title: match.topic.code + " — " + match.topic.title + " (প্রশ্ন " + toBengaliQuestionNumber(match.question.number) + ")",
+              contextLabel: "Nuclear Physics-2",
+              href: match.topicRecord
+                ? "/chapters/" + match.topicRecord.chapterId + "#topic-" + match.topicRecord.id
+                : "/subjects/sub-nuclear-401",
+            };
+      }),
+      suggestions: [],
+    };
+  }
+
+ist.
   // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
   const electronics2QuestionMatches = await findAcademicQuestionMatches(
     trimmed,
