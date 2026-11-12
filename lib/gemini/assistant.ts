@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/prisma/client';
-import { AIChatResponsePayload, AIChatResourceLink } from '@/types';
+import { AIChatResponsePayload } from '@/types';
+import { buildAcademicAssistantAnswer, searchSmartAcademicResources } from '@/lib/academic/smart-resource-search';
 import {
   CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
   getLectureNumbersForQuestion,
@@ -14,6 +15,8 @@ import { ELECTRONICS_2_QUESTION_BANK } from '@/lib/academic/electronics-2-questi
 interface ParsedAcademicQuery {
   language: 'en' | 'bn' | 'mixed';
   keywords: string[];
+  subjectQuery?: string;
+  topicQuery?: string;
   chapterNumber?: number;
   resourceFilter: 'ALL' | 'VIDEO' | 'NOTES' | 'INFO';
   conversationalIntro: string;
@@ -42,6 +45,8 @@ export async function processAcademicAssistantQuery(
   let parsed: ParsedAcademicQuery = {
     language: fallbackLang,
     keywords: extractFallbackKeywords(trimmed),
+    subjectQuery: undefined,
+    topicQuery: undefined,
     chapterNumber: extractChapterNumber(trimmed),
     resourceFilter: detectResourceFilter(trimmed),
     conversationalIntro: '',
@@ -53,16 +58,31 @@ export async function processAcademicAssistantQuery(
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-      const systemPrompt = `You are an intent parser for an BraKet (⟨φ|ψ⟩).
-Analyze the student's query (which may be in English, Bangla, or mixed Banglish) and output ONLY valid JSON with this exact shape:
+      const systemPrompt = `You are a multilingual academic search-intent parser for BraKet (⟨φ|ψ⟩), a Physics study-resource library.
+
+The student's request may be English, Bangla script, or Banglish (Bangla written with Latin letters). Understand the meaning, not only exact spelling.
+
+Return ONLY valid JSON with exactly these fields:
 {
   "language": "en" | "bn" | "mixed",
-  "keywords": ["english search term 1", "english search term 2"],
+  "keywords": ["specific subject, chapter, or concept search phrase", "useful English or Bangla synonym"],
+  "subjectQuery": "canonical subject name or null",
+  "topicQuery": "specific concept/topic name or null",
   "chapterNumber": number | null,
   "resourceFilter": "ALL" | "VIDEO" | "NOTES" | "INFO",
-  "conversationalIntro": "A helpful 1-sentence intro in the student's language explaining what you searched for in the database (do NOT invent any links or subject codes). If the student writes Banglish (Bangla expressed with Latin letters), reply in natural Banglish using Latin letters; if Bangla script, reply in Bangla script; if English, reply in English. Do not mix scripts unless the student does."
+  "conversationalIntro": "one short sentence in the same language/script as the student"
 }
-Student query: "${trimmed.replace(/"/g, '\\"')}"`;
+
+Rules:
+- Identify intent: video classes/YouTube/lecture => VIDEO; notes/PDF/images => NOTES; asking to open/find a chapter without a file type => INFO; otherwise ALL.
+- Preserve the core academic concept. Remove request words such as show me, need, please, dekhao, chai, lagbe, দেখাও, চাই.
+- Translate Bangla/Banglish science terms into their standard English equivalents AND keep their Bangla forms in keywords.
+- Map common paraphrases to canonical concepts: quantum theory -> Quantum Mechanics; molecular spectra -> Molecular Spectra / Atomic and Molecular Physics; solid state -> Solid State Physics; statistics in physics -> Statistical Mechanics; classical electromagnetism -> Classical Electrodynamics.
+- A subjectQuery/topicQuery is only a search hint. Never claim a subject, chapter, note, or class exists.
+- Do not invent chapter numbers, subject codes, database records, or URLs.
+- Banglish input must receive a natural Banglish intro in Latin letters; Bangla-script input receives Bangla script; English input receives English.
+
+Student query as JSON string: ${JSON.stringify(trimmed)}`;
 
       const result = await model.generateContent(systemPrompt);
       const rawText = result.response.text().trim();
@@ -70,18 +90,22 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
       if (jsonMatch) {
         const aiJson = JSON.parse(jsonMatch[0]);
         parsed = {
-          language: aiJson.language || fallbackLang,
+          language: ['en', 'bn', 'mixed'].includes(aiJson.language) ? aiJson.language : fallbackLang,
           keywords:
             Array.isArray(aiJson.keywords) && aiJson.keywords.length > 0
-              ? aiJson.keywords.map((k: unknown) => String(k))
+              ? aiJson.keywords.map((k: unknown) => String(k)).slice(0, 10)
               : parsed.keywords,
+          subjectQuery: typeof aiJson.subjectQuery === 'string' ? aiJson.subjectQuery.slice(0, 120) : undefined,
+          topicQuery: typeof aiJson.topicQuery === 'string' ? aiJson.topicQuery.slice(0, 160) : undefined,
           chapterNumber:
             typeof aiJson.chapterNumber === 'number'
               ? aiJson.chapterNumber
               : parsed.chapterNumber,
-          resourceFilter: ['ALL', 'VIDEO', 'NOTES', 'INFO'].includes(aiJson.resourceFilter)
-            ? aiJson.resourceFilter
-            : parsed.resourceFilter,
+          resourceFilter: detectResourceFilter(trimmed) !== 'ALL'
+            ? detectResourceFilter(trimmed)
+            : ['ALL', 'VIDEO', 'NOTES', 'INFO'].includes(aiJson.resourceFilter)
+              ? aiJson.resourceFilter
+              : parsed.resourceFilter,
           conversationalIntro: String(aiJson.conversationalIntro || ''),
         };
       }
@@ -775,148 +799,50 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
     }
   }
 
-  // Query PostgreSQL as the strict source of truth
-  const searchTerms = parsed.keywords.length > 0 ? parsed.keywords : [trimmed];
-  const orConditions = searchTerms.flatMap((term) => [
-    { title: { contains: term, mode: 'insensitive' as const } },
-    { shortDescription: { contains: term, mode: 'insensitive' as const } },
-  ]);
+  // Broad multilingual retrieval across the real PostgreSQL curriculum and resources.
+  // Gemini helps interpret the request; this database lookup decides which links can be shown.
+  const resourceSearch = await searchSmartAcademicResources({
+    query: trimmed,
+    keywords: parsed.keywords,
+    subjectQuery: parsed.subjectQuery,
+    topicQuery: parsed.topicQuery,
+    chapterNumber: parsed.chapterNumber,
+    resourceFilter: parsed.resourceFilter,
+  });
 
-  const resources: AIChatResourceLink[] = [];
+  const resources = resourceSearch.resources;
+  const answer = buildAcademicAssistantAnswer(
+    parsed.language,
+    parsed.resourceFilter,
+    resources.length,
+    trimmed,
+    resourceSearch.availableSubjects
+  );
 
-  if (parsed.resourceFilter === 'ALL' || parsed.resourceFilter === 'INFO') {
-    const subjects = await prisma.subject.findMany({
-      where: {
-        OR: searchTerms.flatMap((term) => [
-          { name: { contains: term, mode: 'insensitive' } },
-          { description: { contains: term, mode: 'insensitive' } },
-          { code: { contains: term, mode: 'insensitive' } },
-        ]),
-      },
-      take: 4,
-    });
-
-    for (const sub of subjects) {
-      resources.push({
-        id: sub.id,
-        type: 'SUBJECT',
-        title: `${sub.name}${sub.code ? ` (${sub.code})` : ''}`,
-        contextLabel: sub.department,
-        href: `/subjects/${sub.id}`,
-      });
-    }
-
-    const chapters = await prisma.chapter.findMany({
-      where: {
-        AND: [
-          parsed.chapterNumber ? { chapterNumber: parsed.chapterNumber } : {},
-          {
-            OR: searchTerms.flatMap((term) => [
-              { title: { contains: term, mode: 'insensitive' } },
-              { description: { contains: term, mode: 'insensitive' } },
-              { subject: { name: { contains: term, mode: 'insensitive' } } },
-            ]),
-          },
-        ],
-      },
-      include: { subject: true },
-      take: 5,
-    });
-
-    for (const ch of chapters) {
-      resources.push({
-        id: ch.id,
-        type: 'CHAPTER',
-        title: `Chapter ${String(ch.chapterNumber).padStart(2, '0')}: ${ch.title}`,
-        contextLabel: ch.subject.name,
-        href: `/chapters/${ch.id}`,
-      });
-    }
-  }
-
-  if (parsed.resourceFilter === 'ALL' || parsed.resourceFilter === 'VIDEO') {
-    const videos = await prisma.youTubeClass.findMany({
-      where: {
-        AND: [
-          parsed.chapterNumber ? { chapter: { chapterNumber: parsed.chapterNumber } } : {},
-          orConditions.length > 0 ? { OR: orConditions } : {},
-        ],
-      },
-      include: { subject: true, chapter: true },
-      take: 5,
-    });
-
-    for (const vid of videos) {
-      resources.push({
-        id: vid.id,
-        type: 'YOUTUBE',
-        title: `Lecture ${String(vid.lectureNumber).padStart(2, '0')}: ${vid.title}`,
-        contextLabel: `${vid.subject.name} • Ch ${vid.chapter.chapterNumber}`,
-        href: `/chapters/${vid.chapterId}`,
-        externalUrl: vid.youtubeUrl,
-      });
-    }
-  }
-
-  if (parsed.resourceFilter === 'ALL' || parsed.resourceFilter === 'NOTES') {
-    const files = await prisma.file.findMany({
-      where: {
-        AND: [
-          parsed.chapterNumber ? { chapter: { chapterNumber: parsed.chapterNumber } } : {},
-          {
-            OR: searchTerms.flatMap((term) => [
-              { fileName: { contains: term, mode: 'insensitive' } },
-              { topic: { title: { contains: term, mode: 'insensitive' } } },
-              { studyNote: { title: { contains: term, mode: 'insensitive' } } },
-            ]),
-          },
-        ],
-      },
-      include: { subject: true, chapter: true, topic: true },
-      take: 6,
-    });
-
-    for (const f of files) {
-      resources.push({
-        id: f.id,
-        type: f.fileType === 'PDF' ? 'PDF' : 'IMAGE',
-        title: f.fileName,
-        contextLabel: `${f.subject.name} • Ch ${f.chapter.chapterNumber} • ${f.topic.title}`,
-        href: `/chapters/${f.chapterId}`,
-        externalUrl: f.driveShareUrl,
-      });
-    }
-  }
-
-  const answer =
-    resources.length > 0
-      ? parsed.conversationalIntro ||
-        (parsed.language === 'bn'
-          ? `আপনার প্রশ্নের সাথে মিল রয়েছে এমন ${resources.length}টি একাডেমিক রিসোর্স ডাটাবেস থেকে পাওয়া গেছে:`
-          : `I found ${resources.length} verified academic resource(s) in the PostgreSQL database matching your query:`)
-      : parsed.language === 'bn'
-      ? 'দুঃখিত, আপনার প্রশ্নের সাথে সরাসরি মিলে এমন কোনো রিসোর্স ডাটাবেসে পাওয়া যায়নি। নিচের প্রস্তাবিত বিষয়গুলো দেখতে পারেন:'
-      : 'No exact database records matched your query. Remember that I only return verified resources stored in PostgreSQL. Try one of the suggested queries below:';
+  const fallbackSuggestions = [
+    'Show me all fourth-year Physics subjects',
+    'I need Quantum Mechanics video classes',
+    'Show me PDF notes about molecular spectra',
+    'Find the chapter about electromagnetic theory',
+    'আণবিক পদার্থবিজ্ঞানের নোট দেখাও',
+  ];
+  const subjectSuggestions = resourceSearch.availableSubjects.slice(0, 5).map((subject) =>
+    parsed.language === 'bn' ? subject + ' এর নোট দেখাও' : 'Show me resources for ' + subject
+  );
 
   return {
     answer,
     detectedLanguage: parsed.language,
     interpretedIntent: {
-      subjectQuery: parsed.keywords.join(', '),
+      subjectQuery: parsed.subjectQuery || parsed.keywords.join(', '),
       chapterNumber: parsed.chapterNumber,
+      topicQuery: parsed.topicQuery,
       resourceFilter: parsed.resourceFilter,
     },
     resources,
-    suggestions: [
-      'Show me all fourth-year physics subjects',
-      'Find the third chapter of Atomic and Molecular Physics',
-      'I need Quantum Theory video classes',
-      'Show me PDF notes about molecular spectra',
-      'Find chapter-wise classes about electromagnetic theory',
-    ],
+    suggestions: resources.length > 0 ? fallbackSuggestions.slice(0, 4) : subjectSuggestions.concat(fallbackSuggestions).slice(0, 6),
   };
 }
-
 
 type AcademicQuestionTopic = {
   chapterNumber: number;
