@@ -184,7 +184,162 @@ export async function POST(request: NextRequest) {
 }
 
 
+
+export async function PATCH(request: NextRequest) {
+  const authError = requireContributionPassword(request);
+  if (authError) return authError;
+
+  let uploadedDriveFileId: string | undefined;
+
+  try {
+    const formData = await request.formData();
+    const noteId = String(formData.get('noteId') || '').trim();
+    const title = String(formData.get('title') || '').trim();
+    const summary = String(formData.get('summary') || '').trim();
+    const author = String(formData.get('author') || '').trim();
+    const replacementFile = formData.get('file');
+
+    if (!noteId || title.length < 3 || title.length > 180) {
+      return NextResponse.json({ error: 'A valid note ID and a title between 3 and 180 characters are required.' }, { status: 400 });
+    }
+    if (summary.length > 2000 || author.length > 120) {
+      return NextResponse.json({ error: 'Description or author exceeds the allowed length.' }, { status: 400 });
+    }
+
+    const note = await prisma.studyNote.findUnique({
+      where: { id: noteId },
+      include: {
+        topic: true,
+        chapter: { include: { subject: true } },
+        files: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!note) return NextResponse.json({ error: 'Note not found.' }, { status: 404 });
+
+    let newFileData: {
+      fileName: string;
+      fileType: 'PDF' | 'JPG' | 'PNG' | 'WEBP';
+      mimeType: string;
+      fileSize: number;
+      driveShareUrl: string;
+      driveFolderPath: string;
+      driveFileId: string;
+    } | null = null;
+
+    if (replacementFile instanceof File && replacementFile.size > 0) {
+      if (replacementFile.size > MAX_FILE_SIZE) {
+        return NextResponse.json({ error: 'File must not exceed 4 MB.' }, { status: 400 });
+      }
+      const fileType = ALLOWED_TYPES[replacementFile.type];
+      if (!fileType) {
+        return NextResponse.json({ error: 'Only PDF, JPG, PNG and WEBP files are supported.' }, { status: 400 });
+      }
+      const bytes = Buffer.from(await replacementFile.arrayBuffer());
+      if (!hasValidFileSignature(bytes, replacementFile.type)) {
+        return NextResponse.json({ error: 'The file content does not match its selected PDF or image type.' }, { status: 400 });
+      }
+
+      const folderId = await ensureDriveFolderHierarchy([
+        `Subject_${note.chapter.subject.code || note.chapter.subject.slug}`,
+        `Chapter_${String(note.chapter.chapterNumber).padStart(2, '0')}`,
+        `Topic_${String(note.topic.topicNumber).padStart(2, '0')}`,
+      ]);
+      const drive = getGoogleDriveClient();
+      const driveResponse: { data: drive_v3.Schema$File } = await drive.files.create({
+        requestBody: {
+          name: replacementFile.name.split(String.fromCharCode(92)).join('_').replaceAll('/', '_'),
+          mimeType: replacementFile.type,
+          parents: [folderId],
+        },
+        media: { mimeType: replacementFile.type, body: Readable.from(bytes) },
+        fields: 'id, webViewLink, size',
+        supportsAllDrives: true,
+      });
+
+      uploadedDriveFileId = driveResponse.data.id || undefined;
+      if (!uploadedDriveFileId) throw new Error('Google Drive did not return a file ID.');
+
+      await drive.permissions.create({
+        fileId: uploadedDriveFileId,
+        requestBody: { type: 'anyone', role: 'reader' },
+        fields: 'id',
+        supportsAllDrives: true,
+      });
+
+      newFileData = {
+        fileName: replacementFile.name,
+        fileType,
+        mimeType: replacementFile.type,
+        fileSize: replacementFile.size,
+        driveShareUrl: driveResponse.data.webViewLink || `https://drive.google.com/file/d/${uploadedDriveFileId}/view`,
+        driveFolderPath: [
+          'Google Drive/Honors_4th_Year',
+          `Subject_${note.chapter.subject.code || note.chapter.subject.slug}`,
+          `Chapter_${String(note.chapter.chapterNumber).padStart(2, '0')}`,
+          `Topic_${String(note.topic.topicNumber).padStart(2, '0')}`,
+        ].join('/'),
+        driveFileId: uploadedDriveFileId,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.studyNote.update({
+        where: { id: noteId },
+        data: { title, summary, author: author || null },
+      });
+
+      if (newFileData) {
+        const existingFile = note.files[0];
+        if (existingFile) {
+          await tx.file.update({
+            where: { id: existingFile.id },
+            data: newFileData,
+          });
+        } else {
+          await tx.file.create({
+            data: {
+              ...newFileData,
+              subjectId: note.subjectId,
+              chapterId: note.chapterId,
+              topicId: note.topicId,
+              studyNoteId: note.id,
+            },
+          });
+        }
+      }
+    });
+
+    if (newFileData && note.files[0]) {
+      try {
+        await getGoogleDriveClient().files.delete({
+          fileId: note.files[0].driveFileId,
+          supportsAllDrives: true,
+        });
+      } catch (cleanupError) {
+        console.error('Could not delete replaced Google Drive note file:', cleanupError);
+      }
+    }
+
+    return NextResponse.json({ message: 'Study note updated successfully.' });
+  } catch (error) {
+    if (uploadedDriveFileId) {
+      try {
+        await getGoogleDriveClient().files.delete({ fileId: uploadedDriveFileId, supportsAllDrives: true });
+      } catch (cleanupError) {
+        console.error('Could not clean up an unlinked replacement upload:', cleanupError);
+      }
+    }
+    console.error('Study note update error:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Could not update this study note.',
+    }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
+  const authError = requireContributionPassword(request);
+  if (authError) return authError;
+
   try {
     const { noteId } = await request.json();
     if (typeof noteId !== 'string' || !noteId.trim()) {
