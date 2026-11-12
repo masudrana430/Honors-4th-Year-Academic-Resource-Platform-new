@@ -1163,13 +1163,12 @@ function extractChapterNumber(query: string): number | undefined {
 
 function detectResourceFilter(query: string): 'ALL' | 'VIDEO' | 'NOTES' | 'INFO' {
   const lower = query.toLocaleLowerCase('bn-BD');
-  const wantsVideo = /\\b(video|videos|youtube|class|classes|lecture|lectures)\\b/.test(lower) ||
+  const wantsVideo = /(^|[^a-z])(video|videos|youtube|class|classes|lecture|lectures)([^a-z]|$)/.test(lower) ||
     /(ভিডিও|ক্লাস|লেকচার|ইউটিউব)/.test(lower) ||
-    /\\b(video class|video classes|class video|lecture video)\\b/.test(lower) ||
-    /\\b(class|lecture|video)\\b/.test(lower) && /\\b(dekhao|dekhaw|chai|lagbe)\\b/.test(lower);
-  const wantsNotes = /\\b(pdf|note|notes|image|images|file|files|handout|document)\\b/.test(lower) ||
+    /(^|[^a-z])(class|lecture|video)([^a-z]|$)/.test(lower) && /(^|[^a-z])(dekhao|dekhaw|chai|lagbe)([^a-z]|$)/.test(lower);
+  const wantsNotes = /(^|[^a-z])(pdf|note|notes|image|images|file|files|handout|document)([^a-z]|$)/.test(lower) ||
     /(নোট|পিডিএফ|ছবি|ইমেজ|ডকুমেন্ট|হ্যান্ডআউট)/.test(lower) ||
-    /\\b(note|notes|pdf|file)\\b/.test(lower) && /\\b(dekhao|dekhaw|chai|lagbe)\\b/.test(lower);
+    /(^|[^a-z])(note|notes|pdf|file)([^a-z]|$)/.test(lower) && /(^|[^a-z])(dekhao|dekhaw|chai|lagbe)([^a-z]|$)/.test(lower);
 
   if (wantsVideo && wantsNotes) return 'ALL';
   if (wantsVideo) return 'VIDEO';
@@ -1186,7 +1185,10 @@ const ASSISTANT_CREATOR = 'Masud Rana';
 function fallbackLanguage(query: string): 'en' | 'bn' | 'mixed' {
   const hasBangla = /[\u0980-\u09FF]/.test(query);
   const hasLatin = /[a-zA-Z]/.test(query);
-  return hasBangla && hasLatin ? 'mixed' : hasBangla ? 'bn' : 'en';
+  const hasBanglishMarkers = /(^|[^a-z])(dekhao|dekhaw|dekhan|chai|lagbe|dorkar|amar|amake|khuje|khujte|sob|shob|jonno)([^a-z]|$)/i.test(query);
+  return hasBangla || (hasLatin && hasBanglishMarkers)
+    ? hasBangla && hasLatin || hasBanglishMarkers ? 'mixed' : 'bn'
+    : 'en';
 }
 
 function detectIdentityIntent(query: string): IdentityIntent | null {
