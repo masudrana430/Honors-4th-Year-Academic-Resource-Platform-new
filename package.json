@@ -1,8 +1,8 @@
 {
-  "name": "honors-4th-year-academic-resource-platform",
+  "name": "braket",
   "version": "1.0.0",
   "private": true,
-  "description": "Public Honors 4th Year Academic Resource Platform with Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL, Prisma, Google Drive API, Gemini AI Assistant, and Voice Search",
+  "description": "BraKet (⟨φ|ψ⟩) Physics Learning Hub with subject-wise chapters, YouTube classes, study notes, and a multilingual Campus Assistant.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
