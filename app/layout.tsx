@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: siteTitle,
     title: 'BraKet — ⟨φ|ψ⟩ | Physics Learning Hub',
     description: siteDescription,
-    images: [{ url: '/braket-logo.jpg', width: 512, height: 512, alt: 'BraKet logo' }],
+    images: [{ url: '/braket-logo.jpg', width: 256, height: 256, alt: 'BraKet logo' }],
   },
   twitter: {
     card: 'summary_large_image',
