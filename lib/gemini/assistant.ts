@@ -89,7 +89,8 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
   }
 
 
-  // Match question-first queries against the supplied Classical Electrodynamics QC l  const nuclearPhysics2QuestionMatches = await findAcademicQuestionMatches(
+  // Match question-first queries against the supplied Nuclear Physics-2 QC list.
+  const nuclearPhysics2QuestionMatches = await findAcademicQuestionMatches(
     trimmed,
     parsed.keywords,
     NUCLEAR_PHYSICS_2_QUESTION_BANK,
@@ -196,7 +197,8 @@ Student query: "${trimmed.replace(/"/g, '\\"')}"`;
     };
   }
 
-ist.
+
+  // Match question-first queries against the supplied Electronics-2 QC list.
   // PostgreSQL remains the source of truth for the actual chapter/topic/video IDs and URLs.
   const electronics2QuestionMatches = await findAcademicQuestionMatches(
     trimmed,
