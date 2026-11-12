@@ -1291,7 +1291,7 @@ function buildIdentityResponse(
   if (language === 'bn') {
     if (intent === 'name') answer = `আমার নাম ${ASSISTANT_NAME}। আমি তোমার একাডেমিক সহকারী।`;
     else if (intent === 'creator') answer = `আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
-    else answer = `আমি ${ASSISTANT_NAME}, এই Honors 4th Year Academic Resource Platform-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
+    else answer = `আমি ${ASSISTANT_NAME}, এই BraKet (⟨φ|ψ⟩)-এর AI একাডেমিক সহকারী। আমাকে তৈরি ও ডেভেলপ করেছেন ${ASSISTANT_CREATOR}।`;
   } else if (language === 'mixed') {
     if (intent === 'name') answer = `Amar naam ${ASSISTANT_NAME}. Ami apnar academic assistant.`;
     else if (intent === 'creator') answer = `Amake create ebong develop korechen ${ASSISTANT_CREATOR}.`;
