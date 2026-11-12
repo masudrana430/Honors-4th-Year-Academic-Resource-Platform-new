@@ -68,7 +68,7 @@ export default function SearchResults({ initialQuery }: { initialQuery: string }
   return (
     <main className="mx-auto min-h-[65vh] max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
-        <p className="text-sm font-semibold text-indigo-600">ACADEMIC RESOURCE SEARCH</p>
+        <p className="text-sm font-semibold text-indigo-600">BRAKET RESOURCE SEARCH</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Search Resources</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">বাংলা, English অথবা Banglish-এ Subject, Chapter, Topic, PDF ও Class খুঁজুন।</p>
 
