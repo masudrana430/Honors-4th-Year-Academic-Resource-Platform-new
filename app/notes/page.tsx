@@ -1,12 +1,23 @@
 import Link from 'next/link';
-import { FileText, BookOpen, FolderOpen, Plus, Download, ExternalLink } from 'lucide-react';
+import { FileText, BookOpen, FolderOpen, Plus, Download, ExternalLink, Search } from 'lucide-react';
 import { prisma } from '@/lib/prisma/client';
 import { buildGoogleDriveUrls } from '@/lib/google-drive/driveClient';
 import NoteManagementActions from '@/components/notes/PublicNoteDeleteButton';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NotesHubPage() {
+export default async function NotesHubPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; type?: string; sort?: string };
+}) {
+  const query = (searchParams.q || '').trim();
+  const normalizedQuery = query.toLocaleLowerCase();
+  const filterType = ['all', 'pdf', 'image'].includes(searchParams.type || '')
+    ? (searchParams.type || 'all')
+    : 'all';
+  const sortMode = searchParams.sort === 'alphabetical' ? 'alphabetical' : 'newest';
+
   const subjects = await prisma.subject.findMany({
     orderBy: { name: 'asc' },
     include: {
@@ -30,9 +41,53 @@ export default async function NotesHubPage() {
     (total, subject) => total + subject.chapters.reduce((chapterTotal, chapter) => chapterTotal + chapter.studyNotes.length, 0),
     0
   );
-  const fileCount = subjects.reduce(
+
+  const matchesFileType = (note: (typeof subjects)[number]['chapters'][number]['studyNotes'][number]) => {
+    if (filterType === 'pdf') return note.files.some((file) => file.fileType === 'PDF');
+    if (filterType === 'image') return note.files.some((file) => ['JPG', 'PNG', 'WEBP'].includes(file.fileType));
+    return true;
+  };
+
+  const displaySubjects = subjects.map((subject) => {
+    const chapters = subject.chapters.map((chapter) => {
+      const studyNotes = chapter.studyNotes.filter((note) => {
+        if (!matchesFileType(note)) return false;
+        if (!normalizedQuery) return true;
+
+        const searchableText = [
+          note.title,
+          note.summary || '',
+          note.author || '',
+          subject.name,
+          subject.code || '',
+          subject.department || '',
+          chapter.title,
+          'chapter ' + chapter.chapterNumber,
+          note.topic?.title || '',
+          note.topic ? 'topic ' + note.topic.topicNumber : '',
+          ...note.files.map((file) => file.fileName + ' ' + file.fileType),
+        ].join(' ').toLocaleLowerCase();
+
+        const terms = normalizedQuery.split(/\\s+/).filter(Boolean);
+        return terms.every((term) => searchableText.includes(term));
+      });
+
+      if (sortMode === 'alphabetical') {
+        studyNotes.sort((a, b) => a.title.localeCompare(b.title));
+      }
+      return { ...chapter, studyNotes };
+    }).filter((chapter) => !normalizedQuery && filterType === 'all' ? true : chapter.studyNotes.length > 0);
+
+    return { ...subject, chapters };
+  }).filter((subject) => !normalizedQuery && filterType === 'all' ? true : subject.chapters.length > 0);
+
+  const matchingNoteCount = displaySubjects.reduce(
+    (total, subject) => total + subject.chapters.reduce((count, chapter) => count + chapter.studyNotes.length, 0),
+    0
+  );
+  const matchingFileCount = displaySubjects.reduce(
     (total, subject) => total + subject.chapters.reduce(
-      (chapterTotal, chapter) => chapterTotal + chapter.studyNotes.reduce((noteTotal, note) => noteTotal + note.files.length, 0),
+      (count, chapter) => count + chapter.studyNotes.reduce((fileTotal, note) => fileTotal + note.files.length, 0),
       0
     ),
     0
@@ -62,10 +117,56 @@ export default async function NotesHubPage() {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex items-center gap-2">
+          <Search className="h-5 w-5 text-indigo-600" />
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Search study notes</h2>
+            <p className="text-[11px] text-slate-500">বাংলা, English বা Banglish-এ note, subject, chapter, topic বা file খুঁজুন।</p>
+          </div>
+        </div>
+
+        <form action="/notes" method="GET" className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={query}
+              placeholder="যেমন: Quantum Mechanics, নিউক্লিয়ার নোট, Chapter 3..."
+              aria-label="Search notes by title, subject, chapter, topic or file"
+              autoComplete="off"
+              className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+          <select name="type" defaultValue={filterType} aria-label="Filter note file type" className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500">
+            <option value="all">All notes</option>
+            <option value="pdf">PDF notes</option>
+            <option value="image">Image notes</option>
+          </select>
+          <select name="sort" defaultValue={sortMode} aria-label="Sort notes" className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500">
+            <option value="newest">Newest first</option>
+            <option value="alphabetical">A–Z</option>
+          </select>
+          <div className="flex flex-wrap gap-2 sm:col-span-3">
+            <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700">
+              <Search className="h-3.5 w-3.5" /> Search notes
+            </button>
+            {(query || filterType !== 'all' || sortMode !== 'newest') && (
+              <Link href="/notes" className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700">
+                Clear filters
+              </Link>
+            )}
+          </div>
+        </form>
+      </section>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Browse the library</h2>
-          <p className="text-xs text-slate-500">{noteCount} notes across {subjects.length} subjects and {chapterCount} chapters · {fileCount} attached files</p>
+          <h2 className="text-lg font-bold text-slate-900">{query || filterType !== 'all' ? 'Search results' : 'Browse the library'}</h2>
+          <p className="text-xs text-slate-500">
+            Showing {matchingNoteCount} of {noteCount} notes · {displaySubjects.length} subjects · {matchingFileCount} files
+          </p>
         </div>
         <Link href="/notes/upload" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700">
           <Plus className="h-3.5 w-3.5" /> Upload study material
@@ -77,9 +178,16 @@ export default async function NotesHubPage() {
           <BookOpen className="mx-auto h-8 w-8 text-slate-400" />
           <p className="mt-3 text-sm font-semibold text-slate-800">No subjects found.</p>
         </div>
+      ) : displaySubjects.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <Search className="mx-auto h-8 w-8 text-slate-400" />
+          <p className="mt-3 text-sm font-semibold text-slate-800">No matching notes found.</p>
+          <p className="mt-1 text-xs text-slate-500">Try another keyword or clear the selected filters.</p>
+          <Link href="/notes" className="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Clear search</Link>
+        </div>
       ) : (
         <div className="space-y-4">
-          {subjects.map((subject) => {
+          {displaySubjects.map((subject) => {
             const subjectNotes = subject.chapters.reduce((count, chapter) => count + chapter.studyNotes.length, 0);
             return (
               <details key={subject.id} open className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -100,7 +208,7 @@ export default async function NotesHubPage() {
 
                 <div className="space-y-3 p-3 sm:p-5">
                   {subject.chapters.map((chapter) => (
-                    <details key={chapter.id} className="overflow-hidden rounded-xl border border-slate-200">
+                    <details key={chapter.id} open={Boolean(query) || filterType !== 'all'} className="overflow-hidden rounded-xl border border-slate-200">
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50 marker:hidden">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <FolderOpen className="h-4 w-4 shrink-0 text-amber-600" />
@@ -127,7 +235,7 @@ export default async function NotesHubPage() {
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">
-                                      {note.topic ? `Topic ${String(note.topic.topicNumber).padStart(2, '0')} · ${note.topic.title}` : 'Chapter note'}
+                                      {note.topic ? 'Topic ' + String(note.topic.topicNumber).padStart(2, '0') + ' · ' + note.topic.title : 'Chapter note'}
                                     </p>
                                     <h5 className="mt-1 break-words text-sm font-bold text-slate-900">{note.title}</h5>
                                   </div>
