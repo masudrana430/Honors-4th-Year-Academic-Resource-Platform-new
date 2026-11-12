@@ -799,7 +799,7 @@ export function AcademicAIAssistant() {
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-900 px-4 py-3 text-white sm:rounded-t-2xl">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-indigo-400" />
-          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Gemini + PostgreSQL • Free device voice</p></div>
+          <div><h3 className="text-sm font-semibold">Campus Assistant</h3><p className="text-[11px] text-slate-300">Bangla • English • Banglish • Voice support</p></div>
         </div>
         <div className="flex items-center gap-1">
           <select aria-label="Voice language" value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value as VoiceLanguage)} className="max-w-[108px] rounded bg-slate-800 px-2 py-1 text-[11px] text-white">
@@ -844,7 +844,7 @@ export function AcademicAIAssistant() {
             </div>
           </div>
         ))}
-        {isLoading && <div className="text-xs text-slate-500 animate-pulse">Gemini দিয়ে academic resource খুঁজছি...</div>}
+        {isLoading && <div className="text-xs text-slate-500 animate-pulse">তোমার জন্য academic resources খুঁজছি...</div>}
       </div>
 
       {voiceMode && (
