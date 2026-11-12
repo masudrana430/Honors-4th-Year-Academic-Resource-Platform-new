@@ -85,7 +85,13 @@ export default async function ChapterDetailsPage({
                           >
                             {file.fileType === 'PDF' ? 'Open PDF' : 'Preview Image'}
                           </a>
-                          <PublicNoteDeleteButton noteId={file.studyNoteId || ''} />
+                          <PublicNoteDeleteButton
+                            noteId={file.studyNoteId || ''}
+                            title={file.studyNote?.title || ''}
+                            summary={file.studyNote?.summary || ''}
+                            author={file.studyNote?.author}
+                            fileName={file.fileName}
+                          />
                           <a
                             href={driveUrls.downloadUrl}
                             target="_blank"
