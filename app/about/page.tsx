@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import Link from 'next/link';
 import {
   Github, Linkedin, Facebook, Instagram, Youtube, Globe, Mail, Phone, MessageCircle,
   FileText, MapPin, ExternalLink, Code2, GraduationCap, BriefcaseBusiness, ArrowUpRight,
