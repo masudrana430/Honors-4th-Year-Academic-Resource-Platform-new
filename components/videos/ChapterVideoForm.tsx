@@ -24,6 +24,7 @@ export default function ChapterVideoForm({
   const [duration, setDuration] = useState('');
   const [instructorName, setInstructorName] = useState('');
   const [topicId, setTopicId] = useState('');
+  const [uploadPassword, setUploadPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -37,7 +38,7 @@ export default function ChapterVideoForm({
     try {
       const response = await fetch(`/api/chapters/${chapterId}/videos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-content-upload-password': uploadPassword },
         body: JSON.stringify({
           title,
           youtubeUrl,
@@ -57,6 +58,7 @@ export default function ChapterVideoForm({
       setDuration('');
       setInstructorName('');
       setTopicId('');
+      setUploadPassword('');
       setOpen(false);
       router.refresh();
     } catch (error) {
@@ -192,6 +194,11 @@ export default function ChapterVideoForm({
               placeholder="Teacher or YouTube channel"
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label htmlFor="chapter-video-upload-password" className="mb-1 block text-xs font-semibold text-slate-700">Content upload password *</label>
+            <input id="chapter-video-upload-password" type="password" autoComplete="current-password" required value={uploadPassword} onChange={(event) => setUploadPassword(event.target.value)} placeholder="Enter the upload password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm" />
           </div>
 
           <div className="sm:col-span-2">
