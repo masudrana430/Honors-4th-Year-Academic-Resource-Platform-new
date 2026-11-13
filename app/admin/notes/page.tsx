@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { MAX_NOTE_UPLOAD_BYTES, uploadStudyNoteFile } from '@/lib/notes/client-upload';
 
 type Topic = { id: string; title: string; topicNumber: number };
 type Chapter = { id: string; title: string; chapterNumber: number; topics: Topic[] };
@@ -18,6 +19,7 @@ export default function AdminNotesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState('');
 
   const selectedSubject = subjects.find((item) => item.id === subjectId);
@@ -53,31 +55,30 @@ export default function AdminNotesPage() {
       setMessage('Please choose a PDF or image file.');
       return;
     }
+    if (file.size > MAX_NOTE_UPLOAD_BYTES) {
+      setMessage('File size cannot exceed 25 MB.');
+      return;
+    }
     setUploading(true);
-    setMessage('');
+    setUploadProgress(0);
+    setMessage('Preparing secure Google Drive upload…');
     try {
-      const body = new FormData();
-      body.set('subjectId', subjectId);
-      body.set('chapterId', chapterId);
-      body.set('topicId', topicId);
-      body.set('title', title);
-      body.set('summary', summary);
-      body.set('author', author);
-      body.set('file', file);
-
-      const response = await fetch('/api/admin/notes', {
-        method: 'POST',
-        headers: { 'x-content-upload-password': uploadPassword },
-        body,
+      const data = await uploadStudyNoteFile({
+        file,
+        password: uploadPassword,
+        metadata: { mode: 'create', subjectId, chapterId, topicId, title, summary, author },
+        onProgress: (percent) => {
+          setUploadProgress(percent);
+          setMessage(`Uploading directly to Google Drive: ${percent}%`);
+        },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Upload failed.');
-      setMessage(`Success: “${data.note.title}” uploaded and linked to the selected topic.`);
+      setMessage(`Success: “${data.note?.title || title}” uploaded and linked to the selected topic.`);
       setTitle('');
       setSummary('');
       setAuthor('');
       setUploadPassword('');
       setFile(null);
+      setUploadProgress(0);
       const input = document.getElementById('note-file') as HTMLInputElement | null;
       if (input) input.value = '';
     } catch (error) {
@@ -137,11 +138,11 @@ export default function AdminNotesPage() {
             <input type="password" autoComplete="current-password" required value={uploadPassword} onChange={(event) => setUploadPassword(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" placeholder="Enter the content upload password" />
           </div>
           <div>
-            <label htmlFor="note-file" className="mb-1 block text-sm font-semibold text-slate-700">5. Select PDF or image (maximum 4 MB)</label>
+            <label htmlFor="note-file" className="mb-1 block text-sm font-semibold text-slate-700">5. Select PDF or image (maximum 25 MB)</label>
             <input id="note-file" required type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] || null)} className="w-full rounded-xl border border-dashed border-slate-300 p-3 text-sm" />
-            {file && <p className="mt-1 text-xs text-slate-500">{file.name} · {fileSizeLabel}</p>}
+            {file && <p className={`mt-1 text-xs ${file.size > MAX_NOTE_UPLOAD_BYTES ? 'text-red-600' : 'text-slate-500'}`}>{file.name} · {fileSizeLabel}{file.size > MAX_NOTE_UPLOAD_BYTES ? ' · File exceeds 25 MB' : ''}</p>}
           </div>
-          <button type="submit" disabled={uploading || !topicId || topics.length === 0} className="w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">{uploading ? 'Uploading to Google Drive…' : 'Upload note to this topic'}</button>
+          <button type="submit" disabled={uploading || !topicId || topics.length === 0 || Boolean(file && file.size > MAX_NOTE_UPLOAD_BYTES)} className="w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">{uploading ? `Uploading to Google Drive… ${uploadProgress}%` : 'Upload note to this topic'}</button>
         </form>
       )}
 
