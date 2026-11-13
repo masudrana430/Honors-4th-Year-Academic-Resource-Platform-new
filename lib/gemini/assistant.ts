@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/prisma/client';
 import { AIChatResponsePayload } from '@/types';
-import { buildAcademicAssistantAnswer, searchSmartAcademicResources } from '@/lib/academic/smart-resource-search';
+import { buildAcademicAssistantAnswer, hasKnownAcademicConcept, searchSmartAcademicResources } from '@/lib/academic/smart-resource-search';
 import {
   CLASSICAL_ELECTRODYNAMICS_QUESTION_BANK,
   getLectureNumbersForQuestion,
@@ -58,6 +58,7 @@ export async function processAcademicAssistantQuery(
   // have deterministic intent; do not spend a Gemini round-trip on them.
   const deterministicSearch = parsed.resourceFilter !== 'ALL' ||
     isBroadSubjectListRequest(trimmed) ||
+    hasKnownAcademicConcept(trimmed) ||
     (parsed.chapterNumber !== undefined && parsed.keywords.length > 0);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!deterministicSearch && apiKey && apiKey !== 'YOUR_GEMINI_API_KEY') {
