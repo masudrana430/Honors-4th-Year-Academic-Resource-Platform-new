@@ -7,11 +7,11 @@ import {
 
 export const metadata: Metadata = {
   title: 'About Masud Rana',
-  description: 'Meet Masud Rana, a Full-Stack Developer and Product Engineer from Chattogram, Bangladesh. Explore his skills, projects, education, resume, and contact links.',
+  description: 'Meet Masud Rana, an Engineering Physics student and Full-Stack Developer from Chattogram, Bangladesh. Explore his technology stack, recent projects, and contact links.',
   alternates: { canonical: '/about' },
   openGraph: {
     title: 'About Masud Rana | BraKet ⟨φ|ψ⟩',
-    description: 'Full-Stack Developer & Product Engineer · Chattogram, Bangladesh.',
+    description: 'Engineering Physics student & Full-Stack Developer · Chattogram, Bangladesh.',
     url: '/about',
     images: [{ url: '/braket-logo.jpg', width: 256, height: 256, alt: 'BraKet logo' }],
   },
@@ -22,54 +22,66 @@ const socialLinks = [
   { label: 'Portfolio', href: 'https://masud-rana.dev/', Icon: Globe },
   { label: 'LinkedIn', href: 'https://linkedin.com/in/masudrana430', Icon: Linkedin },
   { label: 'Facebook', href: 'https://www.facebook.com/profile.php?id=100069416914519', Icon: Facebook },
-  { label: 'Instagram', href: 'https://www.instagram.com/masud04052003/?hl=en', Icon: Instagram },
+  { label: 'Instagram', href: 'https://www.instagram.com/mas.ud430/', Icon: Instagram },
   { label: 'YouTube', href: 'https://www.youtube.com/@sukoonalqalb-c9v', Icon: Youtube },
   { label: 'Resume', href: 'https://drive.google.com/file/d/1etarj3H6FQBGSjCJPe73b3FaYpRkTG97/view', Icon: FileText },
   { label: 'Upwork', href: 'https://www.upwork.com/freelancers/~01bf8ead3f54ab2897', Icon: BriefcaseBusiness },
 ];
 
 const skillGroups = [
-  { title: 'Languages', skills: ['JavaScript', 'TypeScript'] },
-  { title: 'Frontend', skills: ['HTML', 'CSS', 'React', 'Next.js', 'Tailwind CSS', 'React Router'] },
-  { title: 'Backend', skills: ['Node.js', 'Express.js', 'REST APIs', 'JWT', 'Middleware'] },
-  { title: 'Database & Auth', skills: ['MongoDB', 'PostgreSQL', 'Firebase Auth', 'Data Modeling'] },
-  { title: 'Tools & Deployment', skills: ['Git', 'GitHub', 'VS Code', 'Vercel', 'Netlify', 'Docker', 'AWS', 'Vitest'] },
-  { title: 'UI & Product', skills: ['Responsive UI', 'UI/UX', 'Animation', 'Dashboards', 'Accessibility'] },
+  { title: 'Languages & Core', skills: ['TypeScript', 'JavaScript', 'HTML5', 'CSS3', 'SQL'] },
+  { title: 'Frontend & UI', skills: ['React', 'Next.js', 'Tailwind CSS 3 & 4', 'Radix UI', 'TanStack Query', 'React Hook Form', 'Zod', 'Axios', 'Recharts', 'Sonner', 'Lucide React'] },
+  { title: 'Animation & 3D', skills: ['Motion', 'GSAP', 'Three.js', 'React Three Fiber', 'OGL', 'Matter.js'] },
+  { title: 'Backend & APIs', skills: ['Node.js', 'Express 5', 'REST APIs', 'JWT', 'Google Authentication', 'bcryptjs', 'Cloudinary', 'Multer', 'Nodemailer', 'CORS', 'Helmet', 'Rate Limiting', 'cookie-parser', 'node-cron', 'EJS'] },
+  { title: 'Database & ORM', skills: ['PostgreSQL', 'Prisma ORM', 'pg', 'Redis'] },
+  { title: 'AI, Payments & Integrations', skills: ['Gemini API', 'Google APIs', 'Google Drive API', 'Stripe', 'Paymently'] },
+  { title: 'Documentation & Utilities', skills: ['Swagger / OpenAPI', 'PDFKit', 'KaTeX', 'date-fns'] },
+  { title: 'Developer Tools & Deployment', skills: ['Git', 'GitHub', 'Vercel', 'Render', 'Netlify', 'Postman', 'Playwright', 'GitHub Actions', 'Biome', 'TSX', 'dotenv', 'PostCSS', 'Autoprefixer'] },
 ];
 
 const projects = [
   {
-    name: 'Thornview Grocery',
-    description: 'Full-stack grocery eCommerce platform with role-based dashboards, live support chat, secure payments, and product management.',
-    live: 'https://thornview-grocery.web.app/',
-    code: 'https://github.com/masudrana430/Thornview-Grocery-client',
-    extra: 'https://github.com/masudrana430/Thornview-Grocery-server',
+    name: 'Developer Assessment Platform',
+    category: 'Full-stack · Assessment & Evaluation',
+    description: 'A role-based assessment platform with candidate, reviewer, and admin workflows. It supports assessment creation, timed attempts, MCQ and written questions, reviewer grading, analytics, and paid assessments through Stripe Checkout.',
+    stack: ['Next.js 15', 'React 19', 'TypeScript', 'Tailwind CSS 4', 'Express 5', 'PostgreSQL', 'Prisma', 'Redis', 'Stripe'],
+    links: [
+      { label: 'Live application', href: 'https://developer-assessment-platform-front.vercel.app' },
+      { label: 'Frontend code', href: 'https://github.com/masudrana430/Developer-Assessment-Platform-Frontend' },
+      { label: 'Backend code', href: 'https://github.com/masudrana430/Developer-Assessment-Platform' },
+      { label: 'API documentation', href: 'https://developer-assessment-platform.onrender.com/api-docs' },
+    ],
   },
   {
-    name: 'BloodCare',
-    description: 'Blood donation and funding platform with donor, volunteer, and admin workflows, request tracking, and Stripe payments.',
-    live: 'https://give-a-life.netlify.app/',
-    code: 'https://github.com/masudrana430/GIVE_A_LIFE_clint',
-    extra: 'https://github.com/masudrana430/GIVE_A_LIFE_server',
+    name: 'EventFlow',
+    category: 'Full-stack · Event Management & Ticketing',
+    description: 'An event discovery and ticketing platform designed for attendees, organizers, event staff, admins, and super admins. The product covers event publishing, ticket checkout, digital passes, QR check-in, announcements, refunds, payouts, and role-aware dashboards.',
+    stack: ['Next.js 15', 'React 19', 'TypeScript', 'Tailwind CSS', 'Express 5', 'PostgreSQL', 'Prisma', 'Redis', 'Paymently / Stripe'],
+    links: [
+      { label: 'Live application', href: 'https://event-flow-frontend-nu.vercel.app' },
+      { label: 'Frontend code', href: 'https://github.com/masudrana430/EventFlow-frontend' },
+      { label: 'Backend code', href: 'https://github.com/masudrana430/EventFlow' },
+      { label: 'API documentation', href: 'https://eventflow-ln9q.onrender.com/api-docs' },
+    ],
   },
   {
-    name: 'myDelivery',
-    description: 'Parcel delivery platform with booking, tracking, regional coverage maps, role-based dashboards, and payment history.',
-    live: 'https://my-delivery-4c099.web.app/',
-    code: 'https://github.com/masudrana430/my-delivery-client',
-    extra: 'https://github.com/masudrana430/my-delivery-server',
+    name: 'BraKet ⟨φ|ψ⟩',
+    category: 'Full-stack · Academic Learning Platform',
+    description: 'A physics learning hub for Honours 4th-Year students, with subject and chapter resources, searchable study notes, chapter-wise YouTube classes, Google Drive file uploads, and a multilingual AI assistant for finding relevant academic materials.',
+    stack: ['Next.js 14', 'React 18', 'TypeScript', 'Tailwind CSS', 'Prisma', 'PostgreSQL', 'Gemini API', 'Google Drive API'],
+    links: [
+      { label: 'Live application', href: 'https://honors-4th-year-physics.vercel.app' },
+      { label: 'Source code', href: 'https://github.com/masudrana430/Honors-4th-Year-Academic-Resource-Platform-new' },
+    ],
   },
   {
-    name: 'WarmPaws',
-    description: 'Winter pet-care and adoption experience with authentication, responsive layouts, animations, and interactive sections.',
-    live: 'https://a09-category-rose.netlify.app/',
-    code: 'https://github.com/masudrana430/a09-category-rose',
-  },
-  {
-    name: 'HERO.IO',
-    description: 'App discovery and installation showcase focused on clear product presentation and mobile-friendly design.',
-    live: 'https://hero-apps-masud.netlify.app/',
-    code: 'https://github.com/masudrana430/hero-app',
+    name: 'DoctorHub',
+    category: 'Backend · Healthcare API · Early build',
+    description: 'A backend foundation for a doctor–patient appointment platform. The current working scope includes patient registration, login, and authenticated profile retrieval with Express, TypeScript, Prisma, PostgreSQL, and JWT authentication. Appointment scheduling, doctor schedules, and payments are documented as future work.',
+    stack: ['Node.js', 'Express 5', 'TypeScript', 'Prisma 7', 'PostgreSQL', 'JWT', 'Google Auth', 'Redis', 'Cloudinary'],
+    links: [
+      { label: 'Backend repository', href: 'https://github.com/masudrana430/DoctorHub' },
+    ],
   },
 ];
 
@@ -83,9 +95,9 @@ export default function AboutPage() {
           <div>
             <span className="inline-flex rounded-full border border-indigo-300/20 bg-indigo-400/10 px-3 py-1 text-xs font-semibold text-indigo-200">About the creator of BraKet</span>
             <h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">Masud Rana</h1>
-            <p className="mt-2 text-base font-semibold text-indigo-200">Full-Stack Developer & Product Engineer</p>
+            <p className="mt-2 text-base font-semibold text-indigo-200">Full-Stack Developer & Engineering Physics Student</p>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Junior Frontend & MERN Stack Developer who enjoys turning ideas into clean, responsive, and animated web applications. Focused on reliable architecture, data integrity, polished interfaces, and production-ready products.
+              I build practical web products, from responsive interfaces and interactive experiences to secure APIs, database-driven workflows, and third-party integrations. I enjoy turning complex ideas into useful, polished applications.
             </p>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-indigo-300" />Chattogram, Bangladesh</span>
@@ -99,15 +111,15 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          ['10+', 'Completed projects'],
-          ['15+', 'Technologies'],
-          ['4+', 'Certificates'],
-          ['5+', 'Core areas'],
+          ['3', 'Full-stack applications'],
+          ['1', 'Backend API project in progress'],
+          ['4', 'Featured projects'],
+          ['Full-stack', 'Main development focus'],
         ].map(([value, label]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-            <p className="text-2xl font-extrabold text-indigo-600">{value}</p>
+            <p className="text-xl font-extrabold text-indigo-600">{value}</p>
             <p className="mt-1 text-xs text-slate-500">{label}</p>
           </div>
         ))}
@@ -118,13 +130,13 @@ export default function AboutPage() {
           <div className="flex items-center gap-2"><Code2 className="h-5 w-5 text-indigo-600" /><h2 className="text-lg font-bold text-slate-900">About Me</h2></div>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
             <p>
-              I’m a Full-Stack Developer and Product Engineer who likes turning complex product ideas into type-safe, optimized, and responsive digital solutions. I value clean component architecture, dependable data models, and thoughtful user experiences.
+              I’m an Engineering Physics student at National University, Bangladesh, and a Full-Stack Developer who enjoys building complete digital products. My recent GitHub work includes a developer assessment platform, an event-management and ticketing system, a healthcare API foundation, and BraKet — a physics learning platform.
             </p>
             <p>
-              My current development focus includes TypeScript, Next.js, React, Tailwind CSS, Node.js, Express.js, and MongoDB. I also explore AI-assisted development workflows and keep improving my DevOps, testing, and cloud deployment practices.
+              I work across the stack: building interfaces with React and Next.js, developing TypeScript and Node.js APIs with Express, and designing PostgreSQL data models with Prisma. My projects also use Redis, JWT and Google authentication, file and email services, API documentation, and payment integrations.
             </p>
             <p>
-              I completed the Complete Web Development Course from Programming Hero and continue building real-world projects to strengthen problem-solving, product thinking, and code quality.
+              I’m interested in reliable architecture, secure role-based workflows, performance, and thoughtful user experience. I also enjoy exploring AI integrations, interactive interfaces, animation, and 3D web experiences while continuing to grow as an engineer.
             </p>
           </div>
         </div>
@@ -139,12 +151,12 @@ export default function AboutPage() {
             <div className="border-t border-slate-100 pt-4">
               <p className="text-sm font-bold text-slate-900">Higher Secondary Certificate — Science</p>
               <p className="mt-1 text-xs text-slate-600">Chattogram Bandar College</p>
-              <p className="text-xs text-slate-500">GPA 5.00 / 5.00 · 2021</p>
+              <p className="text-xs text-slate-500">2021</p>
             </div>
             <div className="border-t border-slate-100 pt-4">
               <p className="text-sm font-bold text-slate-900">Secondary School Certificate — Science</p>
               <p className="mt-1 text-xs text-slate-600">Chattogram City Corporation Hatey Khari School & College</p>
-              <p className="text-xs text-slate-500">GPA 4.94 / 5.00 · 2019</p>
+              <p className="text-xs text-slate-500">2019</p>
             </div>
           </div>
         </div>
@@ -152,6 +164,7 @@ export default function AboutPage() {
 
       <section>
         <div className="mb-4 flex items-center gap-2"><Code2 className="h-5 w-5 text-indigo-600" /><h2 className="text-lg font-bold text-slate-900">Skills & Technologies</h2></div>
+        <p className="mb-4 text-sm leading-6 text-slate-600">Technologies reflected in the frontend, backend, and academic platform repositories on my GitHub.</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {skillGroups.map((group) => (
             <div key={group.title} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -169,12 +182,18 @@ export default function AboutPage() {
         <div className="grid gap-3 md:grid-cols-2">
           {projects.map((project) => (
             <article key={project.name} className="rounded-2xl border border-slate-200 bg-white p-5">
-              <h3 className="text-base font-bold text-slate-900">{project.name}</h3>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">{project.category}</p>
+              <h3 className="mt-2 text-base font-bold text-slate-900">{project.name}</h3>
               <p className="mt-2 text-xs leading-5 text-slate-600">{project.description}</p>
-              <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold">
-                <a href={project.live} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline">Live project <ExternalLink className="h-3 w-3" /></a>
-                <a href={project.code} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-700 hover:text-indigo-600">Source code <ArrowUpRight className="h-3 w-3" /></a>
-                {project.extra && <a href={project.extra} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-700 hover:text-indigo-600">Server code <ArrowUpRight className="h-3 w-3" /></a>}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {project.stack.map((skill) => <span key={skill} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600">{skill}</span>)}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-xs font-semibold">
+                {project.links.map((link) => (
+                  <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline">
+                    {link.label} <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                ))}
               </div>
             </article>
           ))}
