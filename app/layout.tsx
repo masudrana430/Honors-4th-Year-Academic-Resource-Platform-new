@@ -7,7 +7,7 @@ import 'katex/dist/katex.min.css';
 import { AcademicAIAssistant } from '@/components/ai/AcademicAIAssistant';
 import MobileStaggeredMenu from '@/components/navigation/MobileStaggeredMenu';
 
-const siteUrl = 'https://honors-4th-year-physics.vercel.app';
+const siteUrl = 'https://braket-physics.vercel.app';
 const siteTitle = 'BraKet — ⟨φ|ψ⟩';
 const siteDescription = 'BraKet is a Physics learning hub for Honors students, with subject-wise chapters, YouTube classes, shared study notes, and a multilingual Campus Assistant.';
 
@@ -65,7 +65,7 @@ const socialLinks = [
   { href: 'https://github.com/masudrana430', label: 'GitHub', Icon: Github },
   { href: 'https://linkedin.com/in/masudrana430', label: 'LinkedIn', Icon: Linkedin },
   { href: 'https://www.facebook.com/profile.php?id=100069416914519', label: 'Facebook', Icon: Facebook },
-  { href: 'https://www.instagram.com/masud04052003/?hl=en', label: 'Instagram', Icon: Instagram },
+  { href: 'https://www.instagram.com/mas.ud430/', label: 'Instagram', Icon: Instagram },
   { href: 'https://www.youtube.com/@sukoonalqalb-c9v', label: 'YouTube', Icon: Youtube },
 ];
 
@@ -92,7 +92,7 @@ export default function RootLayout({
       'https://github.com/masudrana430',
       'https://linkedin.com/in/masudrana430',
       'https://www.facebook.com/profile.php?id=100069416914519',
-      'https://www.instagram.com/masud04052003/?hl=en',
+      'https://www.instagram.com/mas.ud430/',
       'https://www.youtube.com/@sukoonalqalb-c9v',
     ],
   };
