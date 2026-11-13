@@ -312,7 +312,7 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
 
     const resources: AIChatResourceLink[] = subjects.map((subject) => ({
       id: subject.id,
-      type: 'SUBJECT',
+      type: 'SUBJECT' as const,
       title: subject.name + (subject.code ? ' (' + subject.code + ')' : ''),
       contextLabel: subject.department,
       href: '/subjects/' + subject.id,
