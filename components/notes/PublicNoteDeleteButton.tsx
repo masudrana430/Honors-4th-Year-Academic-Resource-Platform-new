@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MAX_NOTE_UPLOAD_BYTES, uploadStudyNoteFile } from '@/lib/notes/client-upload';
 
 export default function PublicNoteDeleteButton({
   noteId,
@@ -24,6 +25,7 @@ export default function PublicNoteDeleteButton({
   const [password, setPassword] = useState('');
   const [replacementFile, setReplacementFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -35,24 +37,45 @@ export default function PublicNoteDeleteButton({
     setMessage('');
     setIsError(false);
     try {
-      const body = new FormData();
-      body.set('noteId', noteId);
-      body.set('title', noteTitle);
-      body.set('summary', noteSummary);
-      body.set('author', noteAuthor);
-      if (replacementFile) body.set('file', replacementFile);
+      if (replacementFile) {
+        if (replacementFile.size > MAX_NOTE_UPLOAD_BYTES) {
+          throw new Error('Replacement file cannot exceed 25 MB.');
+        }
+        await uploadStudyNoteFile({
+          file: replacementFile,
+          password,
+          metadata: {
+            mode: 'replace',
+            noteId,
+            title: noteTitle,
+            summary: noteSummary,
+            author: noteAuthor,
+          },
+          onProgress: (percent) => {
+            setUploadProgress(percent);
+            setMessage(`Uploading replacement file to Google Drive: ${percent}%`);
+          },
+        });
+      } else {
+        const body = new FormData();
+        body.set('noteId', noteId);
+        body.set('title', noteTitle);
+        body.set('summary', noteSummary);
+        body.set('author', noteAuthor);
 
-      const response = await fetch('/api/admin/notes', {
-        method: 'PATCH',
-        headers: { 'x-content-upload-password': password },
-        body,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not update this note.');
+        const response = await fetch('/api/admin/notes', {
+          method: 'PATCH',
+          headers: { 'x-content-upload-password': password },
+          body,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not update this note.');
+      }
       setMessage('Note updated successfully.');
       setEditing(false);
       setPassword('');
       setReplacementFile(null);
+      setUploadProgress(0);
       router.refresh();
     } catch (error) {
       setIsError(true);
@@ -135,11 +158,11 @@ export default function PublicNoteDeleteButton({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs" />
           </div>
           <div>
-            <label htmlFor={`note-file-${noteId}`} className="mb-1 block text-[11px] font-semibold text-slate-700">Replace file (optional, PDF or image up to 4 MB)</label>
+            <label htmlFor={`note-file-${noteId}`} className="mb-1 block text-[11px] font-semibold text-slate-700">Replace file (optional, PDF or image up to 25 MB)</label>
             <input id={`note-file-${noteId}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
               onChange={(event) => setReplacementFile(event.target.files?.[0] || null)}
               className="w-full rounded-lg border border-dashed border-slate-300 bg-white p-2 text-xs" />
-            {replacementFile && <p className="mt-1 text-[10px] text-slate-500">New file: {replacementFile.name}</p>}
+            {replacementFile && <p className={`mt-1 text-[10px] ${replacementFile.size > MAX_NOTE_UPLOAD_BYTES ? 'text-red-600' : 'text-slate-500'}`}>New file: {replacementFile.name} · {(replacementFile.size / 1024 / 1024).toFixed(2)} MB{replacementFile.size > MAX_NOTE_UPLOAD_BYTES ? ' · Exceeds 25 MB' : ''}</p>}
             {!replacementFile && fileName && <p className="mt-1 text-[10px] text-slate-500">Current file: {fileName}</p>}
           </div>
           <div>
@@ -149,8 +172,8 @@ export default function PublicNoteDeleteButton({
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs" placeholder="Enter the shared content password" />
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={saving} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? 'Saving…' : 'Save updates'}
+            <button type="submit" disabled={saving || Boolean(replacementFile && replacementFile.size > MAX_NOTE_UPLOAD_BYTES)} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? (replacementFile ? `Uploading… ${uploadProgress}%` : 'Saving…') : 'Save updates'}
             </button>
             <button type="button" disabled={saving} onClick={() => { setEditing(false); setPassword(''); }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Cancel</button>
