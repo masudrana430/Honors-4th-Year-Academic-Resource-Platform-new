@@ -68,3 +68,24 @@ export async function ensureDriveFolderHierarchy(pathSegments: string[]): Promis
   }
   return parentId;
 }
+
+
+/** Returns a server-only OAuth access token for initializing Drive uploads. */
+export async function getGoogleDriveAccessToken(): Promise<string> {
+  const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = process.env;
+  if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) {
+    throw new Error(
+      'Google Drive OAuth is not configured. Set GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET and GOOGLE_DRIVE_REFRESH_TOKEN in the server environment.'
+    );
+  }
+
+  const auth = new google.auth.OAuth2(
+    GOOGLE_DRIVE_CLIENT_ID,
+    GOOGLE_DRIVE_CLIENT_SECRET,
+    process.env.GOOGLE_DRIVE_REDIRECT_URI
+  );
+  auth.setCredentials({ refresh_token: GOOGLE_DRIVE_REFRESH_TOKEN });
+  const { token } = await auth.getAccessToken();
+  if (!token) throw new Error('Could not obtain a Google Drive access token.');
+  return token;
+}
