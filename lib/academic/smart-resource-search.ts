@@ -301,6 +301,30 @@ function buildContains(term: string, fields: string[]) {
 }
 
 export async function searchSmartAcademicResources(input: SearchInput): Promise<SearchOutput> {
+  // Catalogue requests are not relevance searches. Fetch the complete subject
+  // catalogue directly so words such as "fourth-year" or "physics" can never
+  // accidentally filter out otherwise valid subjects.
+  if (input.subjectOnly) {
+    const subjects = await prisma.subject.findMany({
+      select: { id: true, name: true, code: true, department: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const resources: AIChatResourceLink[] = subjects.map((subject) => ({
+      id: subject.id,
+      type: 'SUBJECT',
+      title: subject.name + (subject.code ? ' (' + subject.code + ')' : ''),
+      contextLabel: subject.department,
+      href: '/subjects/' + subject.id,
+    }));
+
+    return {
+      resources,
+      availableSubjects: subjects.map((subject) => subject.name),
+      matchedSubjectNames: subjects.map((subject) => subject.name),
+    };
+  }
+
   const { terms, scoreTokens } = buildSearchTerms(input);
   const chapterCondition = input.chapterNumber ? { chapterNumber: input.chapterNumber } : undefined;
   const resources: Array<AIChatResourceLink & { relevance: number }> = [];
