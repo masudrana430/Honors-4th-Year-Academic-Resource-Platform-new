@@ -1,9 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    'https://honors-4th-year-physics.vercel.app';
+  const baseUrl = 'https://braket-physics.vercel.app';
   return {
     rules: {
       userAgent: '*',
