@@ -24,6 +24,7 @@ type SearchOutput = {
 
 const STOP_WORDS = new Set([
   'show', 'find', 'search', 'look', 'get', 'give', 'me', 'i', 'need', 'want',
+  'fourth', '4th', 'year', 'years', 'honor', 'honors', 'honour', 'honours', 'physics', 'physic',
   'all', 'the', 'a', 'an', 'of', 'for', 'about', 'in', 'on', 'to', 'from',
   'please', 'can', 'you', 'my', 'some', 'any', 'resource', 'resources',
   'subject', 'subjects', 'chapter', 'chapters', 'topic', 'topics', 'wise',
@@ -36,8 +37,10 @@ const STOP_WORDS = new Set([
   'চ্যাপ্টার', 'টপিক', 'নোট', 'নোটস', 'ভিডিও', 'ক্লাস', 'লেকচার',
   'পিডিএফ', 'ফাইল', 'ছবি', 'সম্পর্কিত', 'দরকার', 'প্রয়োজন', 'প্রয়োজন',
   'হবে', 'কোন', 'কোনো', 'কি', 'কী', 'এবং', 'ও', 'তে', 'এর',
+  'চতুর্থ', '৪র্থ', 'বর্ষ', 'পদার্থবিজ্ঞান', 'পদার্থবিজ্ঞানের',
   'dekhao', 'dekhaw', 'dekhan', 'chai', 'dao', 'din', 'amar', 'amake',
   'sob', 'shob', 'shokol', 'bishoy', 'bisoy', 'oddhay', 'adhyay',
+  'fourth', '4th', 'year', 'years', 'honours', 'honors', 'physics', 'podarthobiggan',
   'note', 'notes', 'video', 'class', 'lecture', 'pdf', 'lagbe',
   'dorkar', 'jonno', 'related', 'khujte', 'khuje', 'dao',
 ]);
@@ -548,7 +551,7 @@ export async function searchSmartAcademicResources(input: SearchInput): Promise<
   });
 
   return {
-    resources: resources.slice(0, 15).map(({ relevance: _relevance, ...resource }) => resource),
+    resources: resources.slice(0, 30).map(({ relevance: _relevance, ...resource }) => resource),
     availableSubjects: availableSubjects.map((subject) => subject.name),
     matchedSubjectNames: Array.from(matchedSubjectNames).slice(0, 8),
   };
