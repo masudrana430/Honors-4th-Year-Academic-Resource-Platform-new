@@ -2,9 +2,7 @@ import { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma/client';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    'https://honors-4th-year-physics.vercel.app';
+  const baseUrl = 'https://braket-physics.vercel.app';
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
