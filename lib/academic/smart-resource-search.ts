@@ -225,6 +225,18 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+export function hasKnownAcademicConcept(query: string): boolean {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return false;
+
+  return CONCEPT_ALIASES.some((group) =>
+    group.aliases.some((alias) => {
+      const normalizedAlias = normalizeText(alias);
+      return normalizedAlias.length > 2 && normalizedQuery.includes(normalizedAlias);
+    })
+  );
+}
+
 function tokens(value: string): string[] {
   return normalizeText(value).split(' ')
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
