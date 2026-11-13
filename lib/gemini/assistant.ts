@@ -843,13 +843,18 @@ Student query as JSON string: ${JSON.stringify(trimmed)}`;
   });
 
   const resources = resourceSearch.resources;
-  const answer = buildAcademicAssistantAnswer(
-    parsed.language,
-    parsed.resourceFilter,
-    resources.length,
-    trimmed,
-    resourceSearch.availableSubjects
-  );
+  const answer = subjectOnly
+    ? buildAllSubjectsAnswer(
+        parsed.language,
+        resources.filter((resource) => resource.type === 'SUBJECT').map((resource) => resource.title)
+      )
+    : buildAcademicAssistantAnswer(
+        parsed.language,
+        parsed.resourceFilter,
+        resources.length,
+        trimmed,
+        resourceSearch.availableSubjects
+      );
 
   const subjectSuggestions = resourceSearch.availableSubjects.slice(0, 5).map((subject) =>
     parsed.language === 'bn' ? subject + ' এর নোট দেখাও' : parsed.language === 'mixed' ? subject + ' er notes dekhao' : 'Show me resources for ' + subject
@@ -1164,11 +1169,51 @@ function shouldRunQuestionBankMatch(query: string): boolean {
 }
 
 function isBroadSubjectListRequest(query: string): boolean {
-  const normalized = query.toLocaleLowerCase('bn-BD');
-  return /(^|[^a-z])(all|list)([^a-z]|$).*(subject|subjects|course|courses)/.test(normalized) ||
-    /(সব|সকল).*(বিষয়|বিষয়|সাবজেক্ট|কোর্স)/.test(normalized) ||
-    /(বিষয়|বিষয়|সাবজেক্ট|কোর্স).*(সব|সকল)/.test(normalized) ||
-    /(^|[^a-z])(all subjects|all fourth year subjects|all 4th year subjects)([^a-z]|$)/.test(normalized);
+  const normalized = query.toLocaleLowerCase('bn-BD')
+    .normalize('NFKC')
+    .replace(/[‐‑–—]/g, ' ')
+    .replace(/[-_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const mentionsSubject = /\b(subjects?|courses?|curriculum|course list|subject list)\b|বিষয়|বিষয়|সাবজেক্ট|কোর্স|পাঠ্যক্রম|bishoy|bisoy|subject gula|course gula/i.test(normalized);
+  if (!mentionsSubject) return false;
+
+  const asksForAll = /(^|[^a-z])(all|list|every|each|complete|entire|full)([^a-z]|$)/i.test(normalized) ||
+    /(^|[^a-z])(sob|shob|shokol|shokolgulo)([^a-z]|$)/i.test(normalized) ||
+    /(সব|সকল|সমস্ত|পুরো|সম্পূর্ণ|সবগুলো|সকলগুলো)/.test(normalized);
+
+  const identifiesFourthYear = /\b(fourth|4th|four|honours?|honors?|year|yr)\b/i.test(normalized) ||
+    /(চতুর্থ|৪র্থ|অনার্স|সম্মান|বর্ষ)/.test(normalized) ||
+    /(^|[^a-z])(4th year|fourth year)([^a-z]|$)/i.test(normalized);
+
+  // "Physics subjects" is itself a catalogue request, even when "all" is omitted.
+  const physicsCatalogue = /\bphysics\b|পদার্থবিজ্ঞান|podarthobiggan|podartho biggan/i.test(normalized);
+
+  return asksForAll || identifiesFourthYear || physicsCatalogue;
+}
+
+function buildAllSubjectsAnswer(
+  language: 'en' | 'bn' | 'mixed',
+  subjects: string[]
+): string {
+  const numberedSubjects = subjects.map((subject, index) => `${index + 1}. ${subject}`).join('\n');
+
+  if (language === 'bn') {
+    return subjects.length
+      ? `BraKet ডাটাবেজে চতুর্থ বর্ষের মোট ${subjects.length}টি পদার্থবিজ্ঞানের বিষয় পাওয়া গেছে:\n${numberedSubjects}\n\nনিচের প্রতিটি কার্ড থেকে সরাসরি Subject খুলতে পারবেন।`
+      : 'দুঃখিত, বর্তমানে ডাটাবেজে কোনো Subject পাওয়া যায়নি।';
+  }
+
+  if (language === 'mixed') {
+    return subjects.length
+      ? `BraKet database-e fourth-year Physics-er total ${subjects.length}ta subject peyechi:\n${numberedSubjects}\n\nNicher protiti card theke directly subject open korte parben.`
+      : 'Dukhkhito, database-e ekhon kono subject paoa jayni.';
+  }
+
+  return subjects.length
+    ? `I found all ${subjects.length} fourth-year Physics subjects in the BraKet database:\n${numberedSubjects}\n\nUse any card below to open that subject.`
+    : 'I could not find any subjects in the database.';
 }
 
 function extractFallbackKeywords(query: string): string[] {
