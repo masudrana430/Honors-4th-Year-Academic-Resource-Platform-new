@@ -717,13 +717,12 @@ export function AcademicAIAssistant() {
             onPointerCancel={handleRobotPointerUp}
             aria-label="Drag robot to move it, or tap to open Campus Assistant chat"
             title="Drag to move • Tap to chat"
-            className={`ai-robot-bob group relative grid h-[82px] w-[82px] touch-none select-none place-items-center rounded-full border border-white/80 bg-gradient-to-br from-white via-indigo-50 to-cyan-100 p-1 shadow-[0_12px_38px_rgba(37,99,235,0.28)] ring-1 ring-indigo-200/80 transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24 ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+            className={`ai-robot-bob group relative grid h-[82px] w-[82px] touch-none select-none place-items-center bg-transparent p-0 transition-shadow duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24 ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
           >
-            <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-indigo-400/20 to-cyan-300/20 blur-md" />
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`pointer-events-none relative z-10 h-full w-full overflow-hidden rounded-full ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-visible ${lottieFailed ? 'hidden' : ''}`}
             />
             {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
             <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
