@@ -718,12 +718,12 @@ export function AcademicAIAssistant() {
             onPointerCancel={handleRobotPointerUp}
             aria-label="Drag robot to move it, or tap to open Campus Assistant chat"
             title="Drag to move • Tap to chat"
-            className={`ai-robot-bob group relative grid h-[140px] w-[140px] touch-none select-none appearance-none place-items-center rounded-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-[160px] sm:w-[160px] ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+            className={`ai-robot-bob group relative grid h-[220px] w-[220px] touch-none select-none appearance-none place-items-center rounded-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-[240px] sm:w-[240px] ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
           >
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none mix-blend-multiply ${lottieFailed ? 'hidden' : ''}`}
             />
             {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-16 w-16 text-indigo-600 sm:h-[72px] sm:w-[72px]" />}
             <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
