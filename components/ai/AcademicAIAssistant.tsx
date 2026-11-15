@@ -670,8 +670,9 @@ export function AcademicAIAssistant() {
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) drag.moved = true;
 
       if (drag.moved) {
-        const maxLeft = -(window.innerWidth - 112);
-        const maxUp = -(window.innerHeight - 112);
+        const launcherSize = window.innerWidth >= 640 ? 176 : 156;
+        const maxLeft = -(window.innerWidth - launcherSize - 16);
+        const maxUp = -(window.innerHeight - launcherSize - 16);
         setRobotDragOffset({
           x: Math.max(maxLeft, Math.min(0, drag.offsetX + deltaX)),
           y: Math.max(maxUp, Math.min(0, drag.offsetY + deltaY)),
@@ -717,14 +718,14 @@ export function AcademicAIAssistant() {
             onPointerCancel={handleRobotPointerUp}
             aria-label="Drag robot to move it, or tap to open Campus Assistant chat"
             title="Drag to move • Tap to chat"
-            className={`ai-robot-bob group relative grid h-[82px] w-[82px] touch-none select-none place-items-center bg-transparent p-0 transition-shadow duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24 ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+            className={`ai-robot-bob group relative grid h-[140px] w-[140px] touch-none select-none appearance-none place-items-center rounded-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-[160px] sm:w-[160px] ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
           >
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`pointer-events-none relative z-10 h-full w-full overflow-visible ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none ${lottieFailed ? 'hidden' : ''}`}
             />
-            {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
+            {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-16 w-16 text-indigo-600 sm:h-[72px] sm:w-[72px]" />}
             <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
               Chat
             </span>
