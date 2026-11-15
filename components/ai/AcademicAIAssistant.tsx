@@ -155,6 +155,55 @@ export function AcademicAIAssistant() {
           welcomeResponse.ok ? decodeAnimation(welcomeResponse).catch(() => null) : Promise.resolve(null),
         ]);
 
+        // The white inner disc is baked into the two raster image layers of this
+        // Lottie file. Punch a transparent hole in those images; the separate
+        // topmost "start1" sparkle layer remains visible in the center.
+        const discLayerIds = new Set(
+          (animationData.layers || [])
+            .filter((layer: any) => layer.refId && layer.nm !== 'start1')
+            .map((layer: any) => layer.refId),
+        );
+        await Promise.all(
+          (animationData.assets || []).map(async (asset: any) => {
+            if (!discLayerIds.has(asset.id) || typeof asset.p !== 'string' || !asset.p.startsWith('data:image/')) return;
+
+            await new Promise<void>((resolve, reject) => {
+              const image = new Image();
+              image.onload = () => {
+                try {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = image.naturalWidth || asset.w;
+                  canvas.height = image.naturalHeight || asset.h;
+                  const context = canvas.getContext('2d');
+                  if (!context) throw new Error('Unable to process AI animation image.');
+                  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                  const centerX = canvas.width / 2;
+                  const centerY = canvas.height * 0.565;
+                  const radius = canvas.width * 0.181;
+                  context.globalCompositeOperation = 'destination-out';
+                  const edge = context.createRadialGradient(
+                    centerX, centerY, Math.max(0, radius - 1),
+                    centerX, centerY, radius + 1,
+                  );
+                  edge.addColorStop(0, 'rgba(0,0,0,1)');
+                  edge.addColorStop(1, 'rgba(0,0,0,0)');
+                  context.fillStyle = edge;
+                  context.beginPath();
+                  context.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
+                  context.fill();
+                  asset.p = canvas.toDataURL('image/png');
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              };
+              image.onerror = () => reject(new Error('Unable to load AI animation image.'));
+              image.src = asset.p;
+            });
+          }),
+        );
+
         if (cancelled || !window.lottie) return;
 
         if (robotContainerRef.current) {
@@ -723,7 +772,7 @@ export function AcademicAIAssistant() {
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none mix-blend-multiply ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none ${lottieFailed ? 'hidden' : ''}`}
             />
             {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-16 w-16 text-indigo-600 sm:h-[72px] sm:w-[72px]" />}
             <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
