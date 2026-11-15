@@ -670,7 +670,7 @@ export function AcademicAIAssistant() {
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) drag.moved = true;
 
       if (drag.moved) {
-        const launcherSize = window.innerWidth >= 640 ? 176 : 156;
+        const launcherSize = window.innerWidth >= 640 ? 256 : 236;
         const maxLeft = -(window.innerWidth - launcherSize - 16);
         const maxUp = -(window.innerHeight - launcherSize - 16);
         setRobotDragOffset({
