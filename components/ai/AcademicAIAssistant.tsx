@@ -155,55 +155,6 @@ export function AcademicAIAssistant() {
           welcomeResponse.ok ? decodeAnimation(welcomeResponse).catch(() => null) : Promise.resolve(null),
         ]);
 
-        // The white inner disc is baked into the two raster image layers of this
-        // Lottie file. Punch a transparent hole in those images; the separate
-        // topmost "start1" sparkle layer remains visible in the center.
-        const discLayerIds = new Set(
-          (animationData.layers || [])
-            .filter((layer: any) => layer.refId && layer.nm !== 'start1')
-            .map((layer: any) => layer.refId),
-        );
-        await Promise.all(
-          (animationData.assets || []).map(async (asset: any) => {
-            if (!discLayerIds.has(asset.id) || typeof asset.p !== 'string' || !asset.p.startsWith('data:image/')) return;
-
-            await new Promise<void>((resolve, reject) => {
-              const image = new Image();
-              image.onload = () => {
-                try {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = image.naturalWidth || asset.w;
-                  canvas.height = image.naturalHeight || asset.h;
-                  const context = canvas.getContext('2d');
-                  if (!context) throw new Error('Unable to process AI animation image.');
-                  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-                  const centerX = canvas.width / 2;
-                  const centerY = canvas.height * 0.565;
-                  const radius = canvas.width * 0.181;
-                  context.globalCompositeOperation = 'destination-out';
-                  const edge = context.createRadialGradient(
-                    centerX, centerY, Math.max(0, radius - 1),
-                    centerX, centerY, radius + 1,
-                  );
-                  edge.addColorStop(0, 'rgba(0,0,0,1)');
-                  edge.addColorStop(1, 'rgba(0,0,0,0)');
-                  context.fillStyle = edge;
-                  context.beginPath();
-                  context.arc(centerX, centerY, radius + 1, 0, Math.PI * 2);
-                  context.fill();
-                  asset.p = canvas.toDataURL('image/png');
-                  resolve();
-                } catch (error) {
-                  reject(error);
-                }
-              };
-              image.onerror = () => reject(new Error('Unable to load AI animation image.'));
-              image.src = asset.p;
-            });
-          }),
-        );
-
         if (cancelled || !window.lottie) return;
 
         if (robotContainerRef.current) {
@@ -719,9 +670,8 @@ export function AcademicAIAssistant() {
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) drag.moved = true;
 
       if (drag.moved) {
-        const launcherSize = window.innerWidth >= 640 ? 256 : 236;
-        const maxLeft = -(window.innerWidth - launcherSize - 16);
-        const maxUp = -(window.innerHeight - launcherSize - 16);
+        const maxLeft = -(window.innerWidth - 112);
+        const maxUp = -(window.innerHeight - 112);
         setRobotDragOffset({
           x: Math.max(maxLeft, Math.min(0, drag.offsetX + deltaX)),
           y: Math.max(maxUp, Math.min(0, drag.offsetY + deltaY)),
@@ -767,14 +717,15 @@ export function AcademicAIAssistant() {
             onPointerCancel={handleRobotPointerUp}
             aria-label="Drag robot to move it, or tap to open Campus Assistant chat"
             title="Drag to move • Tap to chat"
-            className={`ai-robot-bob group relative grid h-[220px] w-[220px] touch-none select-none appearance-none place-items-center rounded-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-[240px] sm:w-[240px] ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+            className={`ai-robot-bob group relative grid h-[82px] w-[82px] touch-none select-none place-items-center rounded-full border border-white/80 bg-gradient-to-br from-white via-indigo-50 to-cyan-100 p-1 shadow-[0_12px_38px_rgba(37,99,235,0.28)] ring-1 ring-indigo-200/80 transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60 sm:h-24 sm:w-24 ${isRobotDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
           >
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-indigo-400/20 to-cyan-300/20 blur-md" />
             <div
               ref={robotContainerRef}
               aria-hidden="true"
-              className={`pointer-events-none relative z-10 h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none ${lottieFailed ? 'hidden' : ''}`}
+              className={`pointer-events-none relative z-10 h-full w-full overflow-hidden rounded-full ${lottieFailed ? 'hidden' : ''}`}
             />
-            {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-16 w-16 text-indigo-600 sm:h-[72px] sm:w-[72px]" />}
+            {lottieFailed && <Bot aria-hidden="true" className="pointer-events-none relative z-10 h-12 w-12 text-indigo-600 sm:h-14 sm:w-14" />}
             <span className="pointer-events-none absolute -bottom-1 right-0 z-20 rounded-full border-2 border-white bg-indigo-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-md sm:text-[10px]">
               Chat
             </span>
