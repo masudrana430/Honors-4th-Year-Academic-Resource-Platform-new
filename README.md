@@ -5,7 +5,7 @@ BraKet's Campus Assistant uses Google Gemini to interpret ambiguous Bangla, Bang
 Set these server-side environment variables in Vercel → Project → Settings → Environment Variables:
 
 - `GEMINI_API_KEY` — your Google AI Studio API key (keep it secret; never use a `NEXT_PUBLIC_` prefix).
-- `GEMINI_MODEL` — model ID; BraKet defaults to `gemini-2.5-flash` if this variable is not set.
+- `GEMINI_MODEL` — model ID; BraKet defaults to `gemini-3.8-flash` if this variable is not set.
 
 After changing environment variables, redeploy the project. The model setting is read by the server at runtime; changing it does not affect PostgreSQL search.
 
