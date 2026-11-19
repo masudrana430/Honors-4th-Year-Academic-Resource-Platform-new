@@ -73,7 +73,7 @@ export default function ChapterVideoForm({
     <section className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Add a YouTube Video</h3>
+          <h3 className="text-sm font-bold text-slate-900">Add a Video</h3>
           <p className="mt-1 text-xs text-slate-600">
             Share a useful class recording with its title and details for this chapter.
           </p>
@@ -117,19 +117,19 @@ export default function ChapterVideoForm({
 
           <div className="sm:col-span-2">
             <label htmlFor="chapter-video-url" className="mb-1 block text-xs font-semibold text-slate-700">
-              YouTube video link *
+              Video link *
             </label>
             <input
               id="chapter-video-url"
               type="url"
               required
-              maxLength={500}
+              maxLength={2000}
               value={youtubeUrl}
               onChange={(event) => setYoutubeUrl(event.target.value)}
-              placeholder="https://youtu.be/xxxxxxxxxxx"
+              placeholder="https://www.facebook.com/... or https://vimeo.com/..."
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
             />
-            <p className="mt-1 text-[11px] text-slate-500">Supported: youtube.com/watch, youtu.be, Shorts and embed links.</p>
+            <p className="mt-1 text-[11px] text-slate-500">Supported: YouTube, Facebook, Vimeo, Dailymotion, TikTok, Instagram, Google Drive and other public HTTPS video links.</p>
           </div>
 
           <div className="sm:col-span-2">
@@ -191,7 +191,7 @@ export default function ChapterVideoForm({
               maxLength={120}
               value={instructorName}
               onChange={(event) => setInstructorName(event.target.value)}
-              placeholder="Teacher or YouTube channel"
+              placeholder="Teacher or platform channel"
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
             />
           </div>
