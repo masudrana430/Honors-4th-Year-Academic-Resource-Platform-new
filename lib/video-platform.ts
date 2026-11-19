@@ -14,7 +14,7 @@ export function parseVideoLink(value: string): VideoLinkInfo | null {
       else if (url.pathname === '/watch') id = url.searchParams.get('v') || '';
       else id = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([^/?]+)/)?.[1] || '';
       if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
-      return { platform: 'YouTube', key: id, canonicalUrl: \`https://www.youtube.com/watch?v=\${id}\`, thumbnailUrl: \`https://img.youtube.com/vi/\${id}/hqdefault.jpg\`, watchLabel: 'Watch on YouTube', isYouTube: true };
+      return { platform: 'YouTube', key: id, canonicalUrl: 'https://www.youtube.com/watch?v=' + id, thumbnailUrl: 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg', watchLabel: 'Watch on YouTube', isYouTube: true };
     }
 
     const platform = host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch' ? 'Facebook'
@@ -27,6 +27,6 @@ export function parseVideoLink(value: string): VideoLinkInfo | null {
       : host.replace(/^m\./, '').replace(/^video\./, '');
     url.hash = '';
     const canonicalUrl = url.toString();
-    return { platform, key: \`external:\${host}:\${canonicalUrl}\`, canonicalUrl, thumbnailUrl: '', watchLabel: \`Watch on \${platform}\`, isYouTube: false };
+    return { platform, key: 'external:' + host + ':' + canonicalUrl, canonicalUrl, thumbnailUrl: '', watchLabel: 'Watch on ' + platform, isYouTube: false };
   } catch { return null; }
 }
