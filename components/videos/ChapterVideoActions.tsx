@@ -206,12 +206,12 @@ export default function ChapterVideoActions({
           </div>
 
           <div>
-            <label htmlFor={`edit-video-url-${video.id}`} className="mb-1 block text-[11px] font-semibold text-slate-700">YouTube link *</label>
+            <label htmlFor={`edit-video-url-${video.id}`} className="mb-1 block text-[11px] font-semibold text-slate-700">Video link *</label>
             <input
               id={`edit-video-url-${video.id}`}
               type="url"
               required
-              maxLength={500}
+              maxLength={2000}
               value={youtubeUrl}
               onChange={(event) => setYoutubeUrl(event.target.value)}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs"
