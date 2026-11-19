@@ -1,29 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma/client';
 import { requireContributionPassword } from '@/lib/contribution-auth';
-
-function extractYouTubeVideoId(value: string): string | null {
-  try {
-    const url = new URL(value);
-    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
-    if (!['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(hostname)) return null;
-
-    let videoId = '';
-    if (hostname === 'youtu.be') {
-      videoId = url.pathname.split('/').filter(Boolean)[0] || '';
-    } else if (url.pathname === '/watch') {
-      videoId = url.searchParams.get('v') || '';
-    } else {
-      videoId = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([^/?]+)/)?.[1] || '';
-    }
-
-    return /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
-  } catch {
-    return null;
-  }
-}
-
-
+import { parseVideoLink } from '@/lib/video-platform';
 
 type RouteContext = {
   params: { id: string; videoId: string };
@@ -59,17 +37,18 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     if (title.length < 3 || title.length > 180) {
       return NextResponse.json({ error: 'Video title must be between 3 and 180 characters.' }, { status: 400 });
     }
-    if (!youtubeUrl || youtubeUrl.length > 500) {
-      return NextResponse.json({ error: 'A valid YouTube video link is required.' }, { status: 400 });
+    if (!youtubeUrl || youtubeUrl.length > 2000) {
+      return NextResponse.json({ error: 'A video link up to 2,000 characters is required.' }, { status: 400 });
     }
     if (shortDescription.length > 2000 || duration.length > 30 || instructorName.length > 120) {
       return NextResponse.json({ error: 'One or more video details exceed the allowed length.' }, { status: 400 });
     }
 
-    const youtubeVideoId = extractYouTubeVideoId(youtubeUrl);
-    if (!youtubeVideoId) {
-      return NextResponse.json({ error: 'This is not a valid YouTube video URL.' }, { status: 400 });
+    const videoLink = parseVideoLink(youtubeUrl);
+    if (!videoLink) {
+      return NextResponse.json({ error: 'Enter a valid public HTTPS video link (YouTube, Facebook, Vimeo, Dailymotion, TikTok, Instagram, Google Drive or another video host).' }, { status: 400 });
     }
+    const youtubeVideoId = videoLink.key;
 
     if (topicId) {
       const topic = await prisma.topic.findFirst({
@@ -98,9 +77,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       data: {
         title,
         shortDescription,
-        youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}`,
+        youtubeUrl: videoLink.canonicalUrl,
         youtubeVideoId,
-        thumbnailUrl: `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        thumbnailUrl: videoLink.thumbnailUrl,
         duration: duration || 'Not specified',
         instructorName: instructorName || null,
         topicId,
