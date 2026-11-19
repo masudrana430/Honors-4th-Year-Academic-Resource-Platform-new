@@ -1,3 +1,16 @@
+# Gemini AI configuration
+
+BraKet's Campus Assistant uses Google Gemini to interpret ambiguous Bangla, Banglish, and English academic queries. PostgreSQL remains the source of truth for subjects, chapters, videos, notes, and all returned academic resources. Deterministic search, question-bank matching, navigation, language handling, and the existing assistant response logic are preserved.
+
+Set these server-side environment variables in Vercel → Project → Settings → Environment Variables:
+
+- `GEMINI_API_KEY` — your Google AI Studio API key (keep it secret; never use a `NEXT_PUBLIC_` prefix).
+- `GEMINI_MODEL` — model ID; BraKet defaults to `gemini-2.5-flash` if this variable is not set.
+
+After changing environment variables, redeploy the project. The model setting is read by the server at runtime; changing it does not affect PostgreSQL search.
+
+---
+
 # Google Drive OAuth setup (Personal Gmail)
 
 This project uses **Google OAuth with your personal Gmail account**. Uploaded files consume storage in that account's My Drive. A service account and Shared Drive are not required.
