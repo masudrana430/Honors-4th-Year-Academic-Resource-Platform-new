@@ -121,22 +121,24 @@ export default async function ChapterDetailsPage({
       />
 
       <section className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">Chapter YouTube Classes</h2>
+        <h2 className="text-lg font-bold text-slate-900">Chapter Video Library</h2>
         {chapter.youtubeClasses.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="text-sm font-semibold text-slate-700">No YouTube classes recorded for this chapter yet.</p>
+            <p className="text-sm font-semibold text-slate-700">No videos recorded for this chapter yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {chapter.youtubeClasses.map((vid) => (
               <div key={vid.id} id={`video-${vid.id}`} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
                 <div className="aspect-video bg-slate-900 relative">
-                  <img
-                    src={vid.thumbnailUrl}
-                    alt={vid.title}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
+                  {vid.youtubeVideoId.startsWith('external:') || !vid.thumbnailUrl ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-indigo-950 text-white">
+                      <span className="text-3xl">▶</span>
+                      <span className="mt-2 text-xs font-semibold">External video</span>
+                    </div>
+                  ) : (
+                    <img src={vid.thumbnailUrl} alt={vid.title} className="h-full w-full object-cover" loading="lazy" />
+                  )}
                   <span className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-0.5 text-[11px] font-semibold text-white">
                     Lecture {String(vid.lectureNumber).padStart(2, '0')} • {vid.duration}
                   </span>
@@ -156,7 +158,7 @@ export default async function ChapterDetailsPage({
                     rel="noopener noreferrer"
                     className="mt-4 inline-flex w-full justify-center rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
                   >
-                    Watch on YouTube
+                    {vid.youtubeVideoId.startsWith('external:') ? `Watch on ${new URL(vid.youtubeUrl).hostname.replace(/^www\\./, '')}` : 'Watch on YouTube'}
                   </a>
                   <ChapterVideoActions
                     chapterId={chapter.id}
