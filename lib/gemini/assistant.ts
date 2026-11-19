@@ -64,7 +64,7 @@ export async function processAcademicAssistantQuery(
   if (!deterministicSearch && apiKey && apiKey !== 'YOUR_GEMINI_API_KEY') {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash';
+      const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
       const model = genAI.getGenerativeModel({ model: modelName });
 
       const systemPrompt = `You are a multilingual academic search-intent parser for BraKet (⟨φ|ψ⟩), a Physics study-resource library.
